@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>Cotizador 3D MX</title>
+<style>
+:root{--bg:#0f1115;--card:#1a1d24;--card2:#222632;--tx:#eef1f6;--mut:#8b93a5;--ac:#4f9dff;--ok:#38d39f;--warn:#ffb84d;--bad:#ff6b6b;--bd:#2c3140}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Roboto,sans-serif}
+body{padding:calc(12px + env(safe-area-inset-top,0px)) 14px calc(86px + env(safe-area-inset-bottom,0px))}
+h1{font-size:20px;margin:4px 0 14px}
+h2{font-size:15px;color:var(--mut);margin:18px 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 5px}
+input[type=text],input[type=number],select{width:100%;min-height:50px;font-size:17px;padding:10px 12px;background:var(--card2);color:var(--tx);border:1px solid var(--bd);border-radius:12px;outline:none}
+input:focus,select:focus{border-color:var(--ac)}
+.row{display:flex;gap:10px}.row>*{flex:1}
+button{min-height:54px;font-size:16px;font-weight:700;border:0;border-radius:14px;padding:0 16px;color:#fff;background:var(--ac);width:100%}
+button.sec{background:var(--card2);border:1px solid var(--bd)}
+button.ok{background:var(--ok);color:#06231a}
+button.bad{background:var(--bad)}
+button:active{transform:scale(.98)}
+.btns{display:flex;gap:8px;margin-top:12px}
+.res{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--bd)}
+.res:last-child{border:0}
+.res span{font-size:14px;color:var(--mut);max-width:60%}
+.res b{font-size:20px}
+.big b{font-size:26px;color:var(--ok)}
+.tag{display:inline-block;font-size:12px;padding:3px 9px;border-radius:99px;background:var(--card2);color:var(--warn);margin-top:6px}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;background:none;border-radius:0;color:var(--mut);min-height:62px;font-size:11px;padding:0;display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center}
+nav button span{font-size:21px}
+nav button.on{color:var(--ac)}
+.tab{display:none}.tab.on{display:block}
+.pr{padding:12px;border:1px solid var(--bd);border-radius:14px;margin-bottom:8px;background:var(--card2)}
+.pr.off{opacity:.6}
+.pr .top{display:flex;align-items:center;gap:10px}
+.pr .i{flex:1;min-width:0}.pr .i small{display:block;color:var(--mut);margin-top:3px}
+.pr .acts{display:flex;gap:8px;margin-top:10px}
+.pr .acts button{min-height:44px;font-size:14px;padding:0 12px}
+.chips{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:3px 9px;border-radius:99px;background:#4f9dff22;color:var(--ac)}
+.sw{display:flex;align-items:center;gap:8px;margin:0;color:var(--tx);font-size:13px;white-space:nowrap}
+.sw input{display:none}
+.sw i{width:50px;height:30px;border-radius:99px;background:var(--bd);position:relative;transition:.2s;flex:none}
+.sw i:after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s}
+.sw input:checked+i{background:var(--ok)}
+.sw input:checked+i:after{left:23px}
+.mats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mats label{display:flex;align-items:center;gap:10px;margin:0;min-height:48px;padding:0 12px;background:var(--card2);border:1px solid var(--bd);border-radius:12px;font-size:15px;color:var(--tx)}
+.mats input{width:22px;height:22px;accent-color:var(--ac)}
+#toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#000c;padding:10px 16px;border-radius:99px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;text-align:center}
+#toast.show{opacity:1}
+.hint{font-size:12px;color:var(--mut);margin-top:6px}
+.gcost{font-size:15px;color:var(--ok);margin-top:10px;font-weight:700}
+.dot{display:inline-block;width:18px;height:18px;border-radius:50%;border:2px solid #ffffff55;vertical-align:middle;margin-right:8px;flex:none}
+.hex{flex:none!important;width:64px;min-height:50px;padding:4px;background:var(--card2);border:1px solid var(--bd);border-radius:12px}
+.cs{position:relative}
+.cs-btn{display:flex;align-items:center;width:100%;min-height:50px;font-size:17px;font-weight:400;padding:10px 12px;background:var(--card2);color:var(--tx);border:1px solid var(--bd);border-radius:12px;text-align:left}
+.cs-btn:disabled{opacity:.5}
+.cs-list{display:none;position:absolute;left:0;right:0;top:54px;z-index:20;max-height:240px;overflow:auto;background:var(--card2);border:1px solid var(--ac);border-radius:12px}
+.cs-list.open{display:block}
+.cs-o{display:flex;align-items:center;min-height:50px;padding:0 12px;font-size:16px;border-bottom:1px solid var(--bd)}
+.cs-o:last-child{border:0}
+.pv{display:none;margin-top:10px;position:relative}
+.pv img{width:100%;max-height:200px;object-fit:cover;border-radius:12px;display:block}
+.pv button{position:absolute;top:8px;right:8px;width:auto;min-height:40px;font-size:13px;padding:0 12px;background:#000a}
+.th{width:64px;height:64px;border-radius:12px;object-fit:cover;background:var(--card);flex:none;display:flex;align-items:center;justify-content:center;font-size:26px}
+.modal{display:none;position:fixed;inset:0;background:#000b;z-index:50;padding:14px;align-items:center;justify-content:center}
+.modal.open{display:flex}
+.mbox{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:14px;width:100%;max-width:480px;max-height:88vh;overflow:auto}
+.mbox img{width:100%;max-height:240px;object-fit:cover;border-radius:12px;margin-bottom:10px}
+.mbox h3{margin:0 0 4px;font-size:18px}
+.mbox .res b{font-size:16px;text-align:right}
+.mbox .res span{max-width:45%}
+</style>
+</head>
+<body>
+
+<section id="t-cot" class="tab on">
+  <h1>🧮 Cotizador Rápido</h1>
+  <div class="card">
+    <label>Nombre del proyecto / cliente</label>
+    <input id="proj" type="text" placeholder="Ej. Faceshell Spider-Man">
+    <label>Imagen de referencia (opcional)</label>
+    <button type="button" id="phb" class="sec">📷 Subir imagen de referencia</button>
+    <input type="file" id="phf" accept="image/*" hidden>
+    <div class="pv" id="pv"><img id="pvimg" alt="Vista previa"><button type="button" id="pvx">✕ Quitar</button></div>
+    <label>Impresora 3D (solo activas)</label>
+    <select id="printer"></select>
+    <label>Paso 1 · Tipo de material</label>
+    <select id="f1"></select>
+    <label>Paso 2 · Color del filamento</label>
+    <div class="cs"><button type="button" class="cs-btn" id="f2b"></button><div class="cs-list" id="f2l"></div></div>
+    <label>Paso 3 · Marca del filamento</label>
+    <select id="f3"></select>
+    <div class="hint" id="filhint"></div>
+    <label>Cantidad de piezas</label>
+    <input id="qty" type="number" inputmode="numeric" min="1" value="1">
+    <label>Peso de filamento por pieza (g)</label>
+    <input id="grams" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 45">
+    <label>Tiempo de impresión por pieza</label>
+    <div class="row">
+      <input id="hrs" type="number" inputmode="numeric" min="0" placeholder="Horas">
+      <input id="mins" type="number" inputmode="numeric" min="0" max="59" placeholder="Minutos">
+    </div>
+    <div class="btns"><button id="calc">CALCULAR COTIZACIÓN</button></div>
+    <div class="hint">Cada cálculo se guarda automáticamente en el Historial.</div>
+  </div>
+  <div id="out" style="display:none">
+    <div class="card">
+      <div id="disc" class="tag" style="display:none"></div>
+      <div class="res"><span>Costo real de fabricación (lo que sale de tu bolsa)</span><b id="r-cost"></b></div>
+      <div class="res big"><span>Precio sugerido directo (amigos / escuela)</span><b id="r-direct"></b></div>
+      <div class="res"><span>Ganancia neta limpia</span><b id="r-profit" style="color:var(--ok)"></b></div>
+      <div class="res"><span>Precio Marketplaces (Mercado Libre / Amazon, +28%)</span><b id="r-market" style="color:var(--warn)"></b></div>
+      <div class="res"><span>Precio directo por pieza</span><b id="r-unit" style="font-size:17px"></b></div>
+    </div>
+    <button id="wa" class="ok">📋 Copiar cotización para WhatsApp</button>
+  </div>
+</section>
+
+<section id="t-cfg" class="tab">
+  <h1>⚙️ Parámetros Globales</h1>
+  <div class="card">
+    <label>Costo del filamento por KG (MXN) — solo se usa si eliges "Costo general"</label>
+    <input id="c-fil" type="number" inputmode="decimal" step="0.01">
+    <label>Costo eléctrico CFE (MXN / kWh)</label>
+    <input id="c-kwh" type="number" inputmode="decimal" step="0.01">
+    <label>Insumos de posprocesado por trabajo (MXN)</label>
+    <input id="c-post" type="number" inputmode="decimal" step="0.01">
+    <label>Margen de riesgo / fallas (%)</label>
+    <input id="c-risk" type="number" inputmode="decimal" step="0.1">
+    <label>Multiplicador de ganancia base (x)</label>
+    <input id="c-mult" type="number" inputmode="decimal" step="0.05">
+    <div class="hint">Se guardan automáticamente al escribir.</div>
+    <div class="btns"><button id="reset" class="sec">Restablecer valores predeterminados</button></div>
+  </div>
+</section>
+
+<section id="t-prn" class="tab">
+  <h1>🖨️ Impresoras 3D</h1>
+  <div id="plist"></div>
+  <h2 id="ftitle">Agregar impresora</h2>
+  <div class="card">
+    <label>Nombre de la impresora</label>
+    <input id="p-name" type="text" placeholder="Ej. Flashforge Adventurer 5M Pro">
+    <label>Consumo eléctrico promedio (kW)</label>
+    <input id="p-kw" type="number" inputmode="decimal" step="0.01" value="0.15">
+    <label>Desgaste / depreciación por hora (MXN)</label>
+    <input id="p-wear" type="number" inputmode="decimal" step="0.01" value="3.33">
+    <label>Materiales que soporta</label>
+    <div class="mats" id="p-mats"></div>
+    <div class="row" style="margin-top:8px"><input id="p-newmat" type="text" placeholder="Agregar otro material"><button type="button" id="p-addmat" class="sec" style="flex:none;width:96px">+ Añadir</button></div>
+    <div class="btns">
+      <button id="p-save" class="ok">Guardar</button>
+      <button id="p-cancel" class="sec" style="display:none">Cancelar</button>
+    </div>
+  </div>
+</section>
+
+<section id="t-fil" class="tab">
+  <h1>🧵 Catálogo de Filamentos</h1>
+  <div id="flist"></div>
+  <h2 id="fftitle">Agregar filamento</h2>
+  <div class="card">
+    <label>Tipo de material</label>
+    <select id="f-type"></select>
+    <input id="f-newtype" type="text" placeholder="¿No está en la lista? Escribe un material nuevo" style="margin-top:8px">
+    <label>Marca</label>
+    <input id="f-brand" type="text" placeholder="Ej. Eryone, Creality, Sunlu">
+    <label>Color / variante</label>
+    <div class="row"><input id="f-color" type="text" placeholder="Ej. Verde Oscuro"><input id="f-hex" type="color" class="hex" value="#4f9dff" aria-label="Color real"></div>
+    <div class="row">
+      <div><label>Precio por carrete (MXN)</label><input id="f-price" type="number" inputmode="decimal" step="0.01" placeholder="560.00"></div>
+      <div><label>Peso del carrete (g)</label><input id="f-weight" type="number" inputmode="decimal" step="1" value="1000"></div>
+    </div>
+    <div class="gcost" id="f-gcost"></div>
+    <div class="btns">
+      <button id="f-save" class="ok">Guardar</button>
+      <button id="f-cancel" class="sec" style="display:none">Cancelar</button>
+    </div>
+  </div>
+</section>
+
+<section id="t-his" class="tab">
+  <h1>🗂️ Historial de Cotizaciones</h1>
+  <div id="hlist"></div>
+</section>
+
+<input type="file" id="phu" accept="image/*" hidden>
+<div class="modal" id="modal"><div class="mbox"><div id="mbody"></div>
+  <div class="btns"><button id="mwa" class="ok">📋 Copiar cotización para WhatsApp</button></div>
+  <div class="btns"><button id="mx" class="sec">Cerrar</button></div></div></div>
+
+<nav>
+  <button data-t="t-cot" class="on"><span>🧮</span>Cotizador</button>
+  <button data-t="t-cfg"><span>⚙️</span>Parámetros</button>
+  <button data-t="t-prn"><span>🖨️</span>Impresoras</button>
+  <button data-t="t-fil"><span>🧵</span>Filamentos</button>
+  <button data-t="t-his"><span>🗂️</span>Historial</button>
+</nav>
+<div id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var KEY="cot3d_v1",HKEY="cot3d_hist_v1";
+var MATS=["PLA","PLA+","PETG","ABS","ASA","TPU","Nylon (PA)","Policarbonato (PC)","HIPS","PVA","Polipropileno (PP)","PEEK","PEI (ULTEM)","PCTG","PLA-CF","PETG-CF","PA-CF","PA-GF","PC-CF"];
+var HEX={negro:"#1b1b1b",blanco:"#f2f2f2",rojo:"#e53935",azul:"#1e63e9",verde:"#2eaa4a","verde oscuro":"#14532d",morado:"#7e3ff2",amarillo:"#f6c90e",naranja:"#f57c00",gris:"#8d8d8d",rosa:"#f06fa8",cafe:"#6d4c41","café":"#6d4c41",transparente:"#cfe8ef",dorado:"#d4af37",plata:"#c0c0c0",plateado:"#c0c0c0",turquesa:"#1bbfb0",celeste:"#5bc0f0",beige:"#d9c7a3"};
+function guessHex(n){return HEX[String(n).trim().toLowerCase()]||"#8b93a5"}
+var DEF_CFG={fil:560,kwh:4.5,post:8,risk:10,mult:2.2};
+var S={cfg:Object.assign({},DEF_CFG),
+  printers:[{id:"p1",name:"Flashforge Adventurer 5M Pro",kw:0.15,wear:3.33,active:true,mats:["PLA","PETG","TPU","ABS","ASA","PLA-CF"]}],
+  filaments:[{id:"f1",type:"PLA",brand:"Genérico",color:"Negro",price:560,weight:1000,active:true}],
+  sel:"p1",fil:"",fType:null,fColor:"",fBrand:"",customMats:[],hist:[],photo:"",view:"",pt:"",last:null};
+var editP=null,editF=null;
+
+function load(){
+  try{var r=localStorage.getItem(KEY);if(r){var d=JSON.parse(r);
+    if(d.cfg)S.cfg=Object.assign({},DEF_CFG,d.cfg);
+    if(d.printers&&d.printers.length)S.printers=d.printers;
+    if(d.filaments)S.filaments=d.filaments;
+    if(d.sel)S.sel=d.sel;if(d.fil!==undefined)S.fil=d.fil;
+    if(d.customMats)S.customMats=d.customMats;
+    if(d.fType!==undefined)S.fType=d.fType;if(d.fColor)S.fColor=d.fColor;if(d.fBrand)S.fBrand=d.fBrand;}}catch(e){}
+  try{var hh=localStorage.getItem(HKEY);if(hh)S.hist=JSON.parse(hh)||[]}catch(e){}
+  var mig=function(t){return t==="PLA-CF / Técnico"?"PLA-CF":t};
+  S.printers.forEach(function(p){ // migración de datos anteriores
+    if(p.active===undefined)p.active=true;
+    if(!p.mats)p.mats=["PLA","PETG","TPU","ABS","ASA","PLA-CF"];
+    p.mats=p.mats.map(mig);
+  });
+  S.filaments.forEach(function(f){if(f.active===undefined)f.active=true;f.type=mig(f.type);if(!f.hex)f.hex=guessHex(f.color)});
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({cfg:S.cfg,printers:S.printers,filaments:S.filaments,sel:S.sel,fil:S.fil,fType:S.fType,fColor:S.fColor,fBrand:S.fBrand,customMats:S.customMats}))}catch(e){}}
+function num(v,d){var n=parseFloat(String(v).replace(",","."));return isNaN(n)?(d||0):n}
+function mxn(n){return "$"+n.toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function toast(t){var el=$("toast");el.textContent=t;el.className="show";setTimeout(function(){el.className=""},2000)}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function pf(id){return S.printers.find(function(x){return x.id===id})}
+function ff(id){return S.filaments.find(function(x){return x.id===id})}
+function gcost(f){return f.weight>0?f.price/f.weight:0}
+function fname(f){return f.type+" · "+f.brand+(f.color?" · "+f.color:"")}
+
+/* Tabs */
+document.querySelectorAll("nav button").forEach(function(b){
+  b.onclick=function(){
+    document.querySelectorAll("nav button").forEach(function(x){x.classList.remove("on")});
+    document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("on")});
+    b.classList.add("on");$(b.dataset.t).classList.add("on");window.scrollTo(0,0);
+  };
+});
+
+/* Parámetros */
+var cfgMap={"c-fil":"fil","c-kwh":"kwh","c-post":"post","c-risk":"risk","c-mult":"mult"};
+function fillCfg(){for(var id in cfgMap)$(id).value=S.cfg[cfgMap[id]]}
+Object.keys(cfgMap).forEach(function(id){
+  $(id).oninput=function(){S.cfg[cfgMap[id]]=num($(id).value);save();renderFilSel()};
+});
+$("reset").onclick=function(){if(confirm("¿Restablecer parámetros a los valores predeterminados?")){S.cfg=Object.assign({},DEF_CFG);fillCfg();save();renderFilSel();toast("Valores restablecidos")}};
+
+/* Selectores del cotizador */
+function activePrinters(){return S.printers.filter(function(p){return p.active})}
+function getPrn(){var a=activePrinters();return a.find(function(p){return p.id===S.sel})||a[0]||null}
+function compat(p){return p?S.filaments.filter(function(f){return f.active&&p.mats.indexOf(f.type)>-1}):[]}
+function renderQ(){
+  var ap=activePrinters(),ps=$("printer");
+  if(!ap.length){ps.innerHTML='<option value="">Sin impresoras activas</option>'}
+  else{
+    var p=getPrn();S.sel=p.id;
+    ps.innerHTML=ap.map(function(x){return '<option value="'+x.id+'"'+(x.id===S.sel?" selected":"")+'>'+esc(x.name)+'</option>'}).join("");
+  }
+  renderFilSel();
+}
+function uniq(a,k){var s=[],o=[];a.forEach(function(f){if(s.indexOf(f[k])<0){s.push(f[k]);o.push(f)}});return o}
+function renderFilSel(){
+  var p=getPrn(),list=compat(p),types=uniq(list,"type");
+  if(S.fType!==""&&(S.fType==null||!types.some(function(f){return f.type===S.fType})))S.fType=types.length?types[0].type:"";
+  $("f1").innerHTML='<option value="">Costo general ('+mxn(S.cfg.fil)+'/kg)</option>'+types.map(function(f){return '<option value="'+esc(f.type)+'">'+esc(f.type)+'</option>'}).join("");
+  $("f1").value=S.fType;
+  var byT=S.fType?list.filter(function(f){return f.type===S.fType}):[],cols=uniq(byT,"color");
+  if(!cols.some(function(f){return f.color===S.fColor}))S.fColor=cols.length?cols[0].color:"";
+  var byC=byT.filter(function(f){return f.color===S.fColor}),brs=uniq(byC,"brand");
+  if(!brs.some(function(f){return f.brand===S.fBrand}))S.fBrand=brs.length?brs[0].brand:"";
+  var fl=byC.find(function(f){return f.brand===S.fBrand});
+  S.fil=fl?fl.id:"";
+  var cur=cols.find(function(f){return f.color===S.fColor});
+  $("f2b").innerHTML=cur?dot(cur)+esc(cur.color):'<span style="color:var(--mut)">—</span>';
+  $("f2b").disabled=!cols.length;
+  $("f2l").innerHTML=cols.map(function(f){return '<div class="cs-o" data-c="'+esc(f.color)+'">'+dot(f)+esc(f.color)+'</div>'}).join("");
+  $("f3").innerHTML=brs.length?brs.map(function(f){return '<option value="'+esc(f.brand)+'">'+esc(f.brand)+' — '+mxn(gcost(f))+'/g</option>'}).join(""):'<option value="">—</option>';
+  $("f3").value=S.fBrand;$("f3").disabled=!brs.length;
+  $("filhint").textContent=!p?"Activa una impresora en la pestaña Impresoras.":(!list.length?"Ningún filamento activo es compatible con esta impresora; se usará el costo general.":(fl?"Filamento seleccionado: "+mxn(gcost(fl))+" por gramo.":"Se usará el costo general."));
+  save();
+}
+$("f1").onchange=function(){S.fType=$("f1").value;renderFilSel()};
+$("f3").onchange=function(){S.fBrand=$("f3").value;renderFilSel()};
+$("f2b").onclick=function(e){e.stopPropagation();$("f2l").classList.toggle("open")};
+$("f2l").onclick=function(e){var o=e.target.closest(".cs-o");if(!o)return;S.fColor=o.dataset.c;$("f2l").classList.remove("open");renderFilSel()};
+document.addEventListener("click",function(){$("f2l").classList.remove("open")});
+$("printer").onchange=function(){S.sel=$("printer").value;S.fil="";renderFilSel()};
+
+/* Impresoras */
+function allMats(){return MATS.concat(S.customMats)}
+function addMat(n){n=String(n).trim();if(!n)return "";var f=allMats().find(function(m){return m.toLowerCase()===n.toLowerCase()});if(f)return f;S.customMats.push(n);return n}
+function checkedMats(){return Array.prototype.map.call($("p-mats").querySelectorAll("input:checked"),function(i){return i.value})}
+function dot(f){return '<span class="dot" style="background:'+esc(f.hex||guessHex(f.color))+'"></span>'}
+function renderMatBoxes(sel){
+  $("p-mats").innerHTML=allMats().map(function(m){return '<label><input type="checkbox" value="'+esc(m)+'"'+(sel.indexOf(m)>-1?" checked":"")+'>'+esc(m)+'</label>'}).join("");
+}
+function renderPrn(){
+  $("plist").innerHTML=S.printers.map(function(p){
+    return '<div class="pr'+(p.active?"":" off")+'"><div class="top"><div class="i"><b>'+esc(p.name)+'</b><small>'+p.kw+' kW · '+mxn(p.wear)+'/hr</small></div>'+
+    '<label class="sw"><input type="checkbox" data-a="tog" data-id="'+p.id+'"'+(p.active?" checked":"")+'><i></i>'+(p.active?"Activa":"En pausa")+'</label></div>'+
+    '<div class="chips">'+(p.mats.length?p.mats.map(function(m){return '<span class="chip">'+esc(m)+'</span>'}).join(""):'<span class="hint">Sin materiales marcados</span>')+'</div>'+
+    '<div class="acts"><button class="sec" data-a="edit" data-id="'+p.id+'">✏️ Editar</button><button class="bad" data-a="del" data-id="'+p.id+'">🗑️ Eliminar</button></div></div>';
+  }).join("");
+}
+$("plist").onchange=function(e){
+  var t=e.target;if(t.dataset.a!=="tog")return;
+  pf(t.dataset.id).active=t.checked;save();renderPrn();renderQ();
+  toast(t.checked?"Impresora activa":"Impresora en pausa");
+};
+$("plist").onclick=function(e){
+  var b=e.target.closest("button");if(!b)return;
+  var id=b.dataset.id;
+  if(b.dataset.a==="edit"){var p=pf(id);editP=id;
+    $("p-name").value=p.name;$("p-kw").value=p.kw;$("p-wear").value=p.wear;renderMatBoxes(p.mats);
+    $("ftitle").textContent="Editar impresora";$("p-cancel").style.display="";window.scrollTo(0,document.body.scrollHeight)}
+  if(b.dataset.a==="del"){
+    if(S.printers.length<2){toast("Debe quedar al menos una impresora");return}
+    if(confirm("¿Eliminar esta impresora?")){S.printers=S.printers.filter(function(x){return x.id!==id});
+      save();renderPrn();renderQ();toast("Eliminada")}
+  }
+};
+function clearP(){editP=null;$("p-name").value="";$("p-kw").value="0.15";$("p-wear").value="3.33";renderMatBoxes(["PLA","PETG"]);$("ftitle").textContent="Agregar impresora";$("p-cancel").style.display="none"}
+$("p-cancel").onclick=clearP;
+$("p-addmat").onclick=function(){var n=addMat($("p-newmat").value);if(!n)return;var ch=checkedMats();if(ch.indexOf(n)<0)ch.push(n);renderMatBoxes(ch);fillTypes();$("p-newmat").value="";save();toast("Material añadido")};
+$("p-save").onclick=function(){
+  var name=$("p-name").value.trim();
+  if(!name){toast("Escribe un nombre");return}
+  var kw=num($("p-kw").value,0.15),wear=num($("p-wear").value,3.33);
+  var mats=checkedMats();
+  if(editP){var p=pf(editP);p.name=name;p.kw=kw;p.wear=wear;p.mats=mats}
+  else{var id="p"+Date.now();S.printers.push({id:id,name:name,kw:kw,wear:wear,active:true,mats:mats});S.sel=id;S.fil=""}
+  save();renderPrn();renderQ();clearP();toast("Impresora guardada");
+};
+
+/* Filamentos */
+function fillTypes(){var v=$("f-type").value;$("f-type").innerHTML=allMats().map(function(m){return '<option value="'+esc(m)+'">'+esc(m)+'</option>'}).join("");if(v)$("f-type").value=v}
+function upGcost(){var w=num($("f-weight").value),p=num($("f-price").value);$("f-gcost").textContent=(w>0&&p>0)?"Costo por gramo: "+mxn(p/w)+" ("+mxn(p/w*1000)+"/kg)":""}
+$("f-color").oninput=function(){var h=HEX[$("f-color").value.trim().toLowerCase()];if(h)$("f-hex").value=h};
+$("f-price").oninput=upGcost;$("f-weight").oninput=upGcost;
+function renderFil(){
+  $("flist").innerHTML=S.filaments.length?S.filaments.map(function(f){
+    return '<div class="pr'+(f.active?"":" off")+'"><div class="top"><div class="i"><b>'+dot(f)+esc(fname(f))+'</b><small>'+mxn(f.price)+' / '+f.weight+' g · <span style="color:var(--ok)">'+mxn(gcost(f))+'/g</span></small></div>'+
+    '<label class="sw"><input type="checkbox" data-a="tog" data-id="'+f.id+'"'+(f.active?" checked":"")+'><i></i>'+(f.active?"Disponible":"Pausado")+'</label></div>'+
+    '<div class="acts"><button class="sec" data-a="edit" data-id="'+f.id+'">✏️ Editar</button><button class="bad" data-a="del" data-id="'+f.id+'">🗑️ Eliminar</button></div></div>';
+  }).join(""):'<div class="hint">Aún no hay filamentos. Agrega el primero abajo.</div>';
+}
+$("flist").onchange=function(e){
+  var t=e.target;if(t.dataset.a!=="tog")return;
+  ff(t.dataset.id).active=t.checked;save();renderFil();renderFilSel();
+  toast(t.checked?"Filamento disponible":"Filamento pausado");
+};
+$("flist").onclick=function(e){
+  var b=e.target.closest("button");if(!b)return;
+  var id=b.dataset.id;
+  if(b.dataset.a==="edit"){var f=ff(id);editF=id;
+    $("f-type").value=f.type;$("f-brand").value=f.brand;$("f-color").value=f.color;$("f-hex").value=f.hex||guessHex(f.color);$("f-price").value=f.price;$("f-weight").value=f.weight;upGcost();
+    $("fftitle").textContent="Editar filamento";$("f-cancel").style.display="";window.scrollTo(0,document.body.scrollHeight)}
+  if(b.dataset.a==="del"&&confirm("¿Eliminar este filamento?")){
+    S.filaments=S.filaments.filter(function(x){return x.id!==id});
+    if(S.fil===id)S.fil="";save();renderFil();renderFilSel();toast("Eliminado")}
+};
+function clearF(){editF=null;$("f-brand").value="";$("f-color").value="";$("f-newtype").value="";$("f-hex").value="#4f9dff";$("f-price").value="";$("f-weight").value="1000";$("f-gcost").textContent="";$("fftitle").textContent="Agregar filamento";$("f-cancel").style.display="none"}
+$("f-cancel").onclick=clearF;
+$("f-save").onclick=function(){
+  var price=num($("f-price").value),weight=num($("f-weight").value,1000);
+  if(price<=0||weight<=0){toast("Captura precio y peso válidos");return}
+  var nt=addMat($("f-newtype").value);
+  var d={type:nt||$("f-type").value,brand:$("f-brand").value.trim()||"Sin marca",color:$("f-color").value.trim()||"Sin color",hex:$("f-hex").value,price:price,weight:weight};
+  if(editF)Object.assign(ff(editF),d);
+  else S.filaments.push(Object.assign({id:"f"+Date.now(),active:true},d));
+  save();fillTypes();renderMatBoxes(checkedMats());renderFil();renderFilSel();clearF();toast("Filamento guardado");
+};
+
+/* Cálculo */
+function discount(q){return q>=21?0.20:(q>=6?0.12:0)}
+$("calc").onclick=function(){
+  var p=getPrn();
+  if(!p){toast("No hay impresoras activas");return}
+  var q=Math.max(1,Math.floor(num($("qty").value,1)));
+  var g=num($("grams").value),h=num($("hrs").value),m=num($("mins").value);
+  var hours=h+m/60;
+  if(g<=0&&hours<=0){toast("Captura peso y/o tiempo");return}
+  var c=S.cfg,f=S.fil?ff(S.fil):null;
+  var gc=f?gcost(f):c.fil/1000;
+  var unitBase=(g*gc+hours*p.kw*c.kwh+hours*p.wear)*(1+c.risk/100);
+  var cost=unitBase*q+c.post;
+  var d=discount(q),direct=cost*c.mult*(1-d);
+  var entry={id:"h"+Date.now(),ts:Date.now(),name:$("proj").value.trim(),photo:S.photo||"",printer:p.name,mat:f?fname(f):"Costo general",g:g,h:h,m:m,q:q,cost:cost,direct:direct,profit:direct-cost,market:direct*1.28,d:d,unit:direct/q};
+  S.last=entry;addHist(entry);
+  $("r-cost").textContent=mxn(cost);
+  $("r-direct").textContent=mxn(direct);
+  $("r-profit").textContent=mxn(direct-cost);
+  $("r-market").textContent=mxn(direct*1.28);
+  $("r-unit").textContent=mxn(direct/q);
+  var t=$("disc");
+  if(d>0){t.style.display="";t.textContent="Descuento por volumen aplicado: -"+(d*100)+"%"}else t.style.display="none";
+  $("out").style.display="block";
+  $("out").scrollIntoView({behavior:"smooth",block:"start"});
+};
+
+/* WhatsApp */
+function copyText(t){
+  if(navigator.clipboard&&window.isSecureContext)return navigator.clipboard.writeText(t);
+  return new Promise(function(res,rej){
+    var ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand("copy")?res():rej()}catch(e){rej(e)}
+    document.body.removeChild(ta);
+  });
+}
+function buildWA(r){
+  var tiempo=((r.h?r.h+" h ":"")+(r.m?r.m+" min":"")).trim()||"—";
+  return "*COTIZACIÓN DE IMPRESIÓN 3D*\n\n"+
+    (r.name?"🧩 Proyecto: "+r.name+"\n":"")+
+    "📦 Piezas: "+r.q+"\n"+
+    (r.mat&&r.mat!=="Costo general"?"🧵 Material: "+r.mat+"\n":"")+
+    "⚖️ Filamento por pieza: "+r.g+" g\n"+
+    "⏱️ Tiempo por pieza: "+tiempo+"\n"+
+    (r.d>0?"🏷️ Descuento por volumen: -"+(r.d*100)+"%\n":"")+
+    "\n💰 *Precio por pieza: "+mxn(r.unit)+" MXN*\n"+
+    "💵 *TOTAL: "+mxn(r.direct)+" MXN*\n\n"+
+    "Precios en pesos mexicanos. ¡Gracias por tu preferencia!";
+}
+function doCopy(r){copyText(buildWA(r)).then(function(){toast("Cotización copiada ✓")}).catch(function(){toast("No se pudo copiar")})}
+$("wa").onclick=function(){if(S.last)doCopy(S.last)};
+$("mwa").onclick=function(){var e=hf(S.view);if(e)doCopy(e)};
+
+/* Fotos */
+function readImg(file,cb){
+  if(!file)return;
+  var fr=new FileReader();
+  fr.onerror=function(){toast("No se pudo leer la imagen")};
+  fr.onload=function(){
+    var im=new Image();
+    im.onerror=function(){toast("Imagen no válida")};
+    im.onload=function(){ // se reduce para no llenar el almacenamiento local
+      var M=720,sc=Math.min(1,M/Math.max(im.width,im.height)),c=document.createElement("canvas");
+      c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);
+      c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+      cb(c.toDataURL("image/jpeg",0.72));
+    };
+    im.src=fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+function showPv(){var on=!!S.photo;$("pv").style.display=on?"block":"none";if(on)$("pvimg").src=S.photo}
+$("phb").onclick=function(){$("phf").click()};
+$("phf").onchange=function(){readImg(this.files[0],function(d){S.photo=d;showPv()});this.value=""};
+$("pvx").onclick=function(){S.photo="";showPv()};
+$("phu").onchange=function(){
+  var id=S.pt;readImg(this.files[0],function(d){
+    var e=hf(id);if(!e)return;var old=e.photo;e.photo=d;
+    if(!saveHist()){e.photo=old;toast("Sin espacio para la foto: elimina cotizaciones")}
+    else{renderHist();toast("Foto actualizada")}
+  });this.value="";
+};
+
+/* Historial */
+function hf(id){return S.hist.find(function(x){return x.id===id})}
+function saveHist(){try{localStorage.setItem(HKEY,JSON.stringify(S.hist));return true}catch(e){return false}}
+function addHist(e){
+  S.hist.unshift(e);
+  if(saveHist())toast("Cotización guardada en el Historial");
+  else{
+    e.photo="";
+    if(saveHist())toast("Guardada sin foto: almacenamiento lleno");
+    else{S.hist.shift();toast("No se pudo guardar: almacenamiento lleno")}
+  }
+  renderHist();
+}
+function fdate(t){return new Date(t).toLocaleString("es-MX",{dateStyle:"medium",timeStyle:"short"})}
+function renderHist(){
+  var h=S.hist.slice().sort(function(a,b){return b.ts-a.ts});
+  $("hlist").innerHTML=h.length?h.map(function(e){
+    return '<div class="pr"><div class="top">'+(e.photo?'<img class="th" src="'+e.photo+'" alt="">':'<div class="th">🖼️</div>')+
+    '<div class="i"><b>'+esc(e.name||"Sin nombre")+'</b><small>'+fdate(e.ts)+'</small><small>'+esc(e.mat)+' · '+e.q+' pza</small><small style="color:var(--ok);font-weight:700;font-size:16px">'+mxn(e.direct)+'</small></div></div>'+
+    '<div class="acts"><button data-a="view" data-id="'+e.id+'">👁️ Detalles</button><button class="sec" data-a="photo" data-id="'+e.id+'">📷 Foto</button><button class="bad" data-a="del" data-id="'+e.id+'">🗑️</button></div></div>';
+  }).join(""):'<div class="card hint">Aún no hay cotizaciones. Calcula una en el Cotizador y se guardará aquí automáticamente.</div>';
+}
+$("hlist").onclick=function(e){
+  var b=e.target.closest("button");if(!b)return;
+  var id=b.dataset.id,a=b.dataset.a;
+  if(a==="view")showDetail(id);
+  if(a==="photo"){S.pt=id;$("phu").click()}
+  if(a==="del"&&confirm("¿Eliminar esta cotización del historial?")){
+    S.hist=S.hist.filter(function(x){return x.id!==id});saveHist();renderHist();toast("Eliminada")}
+};
+function showDetail(id){
+  var e=hf(id);if(!e)return;S.view=id;
+  var t=((e.h?e.h+" h ":"")+(e.m?e.m+" min":"")).trim()||"—";
+  function row(a,b){return '<div class="res"><span>'+a+'</span><b>'+b+'</b></div>'}
+  $("mbody").innerHTML=(e.photo?'<img src="'+e.photo+'" alt="">':'')+'<h3>'+esc(e.name||"Sin nombre")+'</h3><div class="hint">'+fdate(e.ts)+'</div>'+
+    row("Impresora",esc(e.printer))+row("Filamento",esc(e.mat))+row("Piezas",e.q)+row("Peso por pieza",e.g+" g")+row("Tiempo por pieza",t)+
+    (e.d>0?row("Descuento por volumen","-"+(e.d*100)+"%"):"")+
+    row("Costo de fabricación",mxn(e.cost))+row("Precio sugerido directo",'<span style="color:var(--ok);max-width:none">'+mxn(e.direct)+'</span>')+
+    row("Precio por pieza",mxn(e.unit))+row("Ganancia neta",mxn(e.profit))+row("Precio Marketplaces",mxn(e.market));
+  $("modal").classList.add("open");
+}
+function closeModal(){$("modal").classList.remove("open");S.view=""}
+$("mx").onclick=closeModal;
+$("modal").onclick=function(e){if(e.target===this)closeModal()};
+
+/* PWA */
+(function(){
+  var icon="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#0f1115"/><text x="256" y="340" font-size="280" text-anchor="middle">🧮</text></svg>');
+  var mf={name:"Cotizador 3D MX",short_name:"Cotizador 3D",start_url:".",display:"standalone",background_color:"#0f1115",theme_color:"#0f1115",lang:"es-MX",icons:[{src:icon,sizes:"512x512",type:"image/svg+xml",purpose:"any"}]};
+  var l=document.createElement("link");l.rel="manifest";
+  l.href="data:application/manifest+json,"+encodeURIComponent(JSON.stringify(mf));
+  document.head.appendChild(l);
+  if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(function(){});
+})();
+
+load();fillCfg();fillTypes();renderMatBoxes(["PLA","PETG"]);renderPrn();renderFil();renderQ();renderHist();
+})();
+</script>
+</body>
+</html>
