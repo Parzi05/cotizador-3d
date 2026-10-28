@@ -78,12 +78,18 @@ nav button.on{color:var(--ac)}
 .pill{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));right:10px;z-index:30;font-size:12px;padding:5px 11px;border-radius:99px;background:#000c;border:1px solid var(--bd);display:none}
 .bar{display:none;height:14px;margin-top:12px;background:var(--card2);border:1px solid var(--bd);border-radius:99px;overflow:hidden}
 .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),var(--ok));transition:width .35s}
+.seg{display:flex;gap:6px;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:5px;margin-bottom:12px}
+.seg button{background:none;color:var(--mut);min-height:48px;font-size:14px;padding:0 8px;border-radius:10px}
+.seg button.on{background:var(--ac);color:#fff}
+button.xs{width:auto;min-height:40px;font-size:13px;padding:0 12px}
+.phead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.phead span{display:flex;gap:6px}
 </style>
 </head>
 <body>
 
 <section id="t-cot" class="tab on">
-  <h1>🧮 Cotizador Rápido</h1>
+  <h1>🧮 Cotizador</h1>
   <div class="card">
     <label>Nombre del proyecto / cliente</label>
     <input id="proj" type="text" placeholder="Ej. Faceshell Spider-Man">
@@ -91,6 +97,9 @@ nav button.on{color:var(--ac)}
     <button type="button" id="phb" class="sec">📷 Subir imagen de referencia</button>
     <input type="file" id="phf" accept="image/*" hidden>
     <div class="pv" id="pv"><img id="pvimg" alt="Vista previa"><button type="button" id="pvx">✕ Quitar</button></div>
+  </div>
+  <div class="seg"><button id="m-q" class="on">⚡ Cotización Rápida</button><button id="m-p">🧩 Proyecto Multi-Pieza</button></div>
+  <div id="mode-q"><div class="card">
     <label>Impresora 3D (solo activas)</label>
     <select id="printer"></select>
     <label>Paso 1 · Tipo de material</label>
@@ -111,6 +120,20 @@ nav button.on{color:var(--ac)}
     </div>
     <div class="btns"><button id="calc">CALCULAR COTIZACIÓN</button></div>
     <div class="hint">Cada cálculo se guarda automáticamente en el Historial.</div>
+  </div></div>
+  <div id="mode-p" style="display:none">
+    <div id="pcs"></div>
+    <button id="addpc" class="sec">+ Agregar Pieza al Proyecto</button>
+    <div class="hint" id="pc-sub" style="margin:10px 0;font-size:14px"></div>
+    <div class="card">
+      <label>Horas de ensamble / post-procesado (opcional)</label>
+      <input id="g-hrs" type="number" inputmode="decimal" step="0.25" min="0" placeholder="0">
+      <label>Costo fijo por preparación de cama / lote (MXN, opcional)</label>
+      <input id="g-fix" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0">
+      <div class="hint">Las horas se cobran con el costo por hora de ensamble definido en Parámetros.</div>
+      <div class="btns"><button id="calcp">CALCULAR PROYECTO</button></div>
+      <div class="hint">Cada cálculo se guarda automáticamente en el Historial.</div>
+    </div>
   </div>
   <div id="out" style="display:none">
     <div class="card">
@@ -119,7 +142,8 @@ nav button.on{color:var(--ac)}
       <div class="res big"><span>Precio sugerido directo (amigos / escuela)</span><b id="r-direct"></b></div>
       <div class="res"><span>Ganancia neta limpia</span><b id="r-profit" style="color:var(--ok)"></b></div>
       <div class="res"><span>Precio Marketplaces (Mercado Libre / Amazon, +28%)</span><b id="r-market" style="color:var(--warn)"></b></div>
-      <div class="res"><span>Precio directo por pieza</span><b id="r-unit" style="font-size:17px"></b></div>
+      <div class="res" id="row-unit"><span>Precio directo por pieza</span><b id="r-unit" style="font-size:17px"></b></div>
+      <div id="r-det"></div>
     </div>
     <button id="wa" class="ok">📋 Copiar cotización para WhatsApp</button>
   </div>
@@ -138,6 +162,8 @@ nav button.on{color:var(--ac)}
     <input id="c-risk" type="number" inputmode="decimal" step="0.1">
     <label>Multiplicador de ganancia base (x)</label>
     <input id="c-mult" type="number" inputmode="decimal" step="0.05">
+    <label>Costo por hora de ensamble / post-procesado (MXN/h) — modo Multi-Pieza</label>
+    <input id="c-labor" type="number" inputmode="decimal" step="0.5">
     <div class="hint">Se guardan automáticamente al escribir.</div>
     <div class="btns"><button id="reset" class="sec">Restablecer valores predeterminados</button></div>
   </div>
@@ -236,11 +262,11 @@ var KEY="cot3d_v1",HKEY="cot3d_hist_v1";
 var MATS=["PLA","PLA+","PETG","ABS","ASA","TPU","Nylon (PA)","Policarbonato (PC)","HIPS","PVA","Polipropileno (PP)","PEEK","PEI (ULTEM)","PCTG","PLA-CF","PETG-CF","PA-CF","PA-GF","PC-CF"];
 var HEX={negro:"#1b1b1b",blanco:"#f2f2f2",rojo:"#e53935",azul:"#1e63e9",verde:"#2eaa4a","verde oscuro":"#14532d",morado:"#7e3ff2",amarillo:"#f6c90e",naranja:"#f57c00",gris:"#8d8d8d",rosa:"#f06fa8",cafe:"#6d4c41","café":"#6d4c41",transparente:"#cfe8ef",dorado:"#d4af37",plata:"#c0c0c0",plateado:"#c0c0c0",turquesa:"#1bbfb0",celeste:"#5bc0f0",beige:"#d9c7a3"};
 function guessHex(n){return HEX[String(n).trim().toLowerCase()]||"#8b93a5"}
-var DEF_CFG={fil:560,kwh:4.5,post:8,risk:10,mult:2.2};
+var DEF_CFG={fil:560,kwh:4.5,post:8,risk:10,mult:2.2,labor:50};
 var S={cfg:Object.assign({},DEF_CFG),
   printers:[{id:"p1",name:"Flashforge Adventurer 5M Pro",kw:0.15,wear:3.33,active:true,mats:["PLA","PETG","TPU","ABS","ASA","PLA-CF"]}],
   filaments:[{id:"f1",type:"PLA",brand:"Genérico",color:"Negro",price:560,weight:1000,active:true}],
-  sel:"p1",fil:"",fType:null,fColor:"",fBrand:"",customMats:[],mod:0,dirty:false,hist:[],photo:"",view:"",pt:"",last:null};
+  sel:"p1",fil:"",fType:null,fColor:"",fBrand:"",customMats:[],pcs:[],mode:"q",gh:"",gf:"",mod:0,dirty:false,hist:[],photo:"",view:"",pt:"",last:null};
 var editP=null,editF=null;
 
 function load(){
@@ -251,6 +277,7 @@ function load(){
     if(d.sel)S.sel=d.sel;if(d.fil!==undefined)S.fil=d.fil;
     if(d.customMats)S.customMats=d.customMats;
     if(d.mod)S.mod=d.mod;if(d.dirty)S.dirty=d.dirty;
+    if(Array.isArray(d.pcs))S.pcs=d.pcs;if(d.mode)S.mode=d.mode;S.gh=d.gh||"";S.gf=d.gf||"";
     if(d.fType!==undefined)S.fType=d.fType;if(d.fColor)S.fColor=d.fColor;if(d.fBrand)S.fBrand=d.fBrand;}}catch(e){}
   try{var hh=localStorage.getItem(HKEY);if(hh)S.hist=JSON.parse(hh)||[]}catch(e){}
   var mig=function(t){return t==="PLA-CF / Técnico"?"PLA-CF":t};
@@ -268,7 +295,7 @@ function save(){
   var sp=synPart();
   if(S.lastSP!==undefined&&sp!==S.lastSP){S.mod=Date.now();S.dirty=true;schedSync()}
   S.lastSP=sp;
-  try{localStorage.setItem(KEY,JSON.stringify({cfg:S.cfg,printers:S.printers,filaments:S.filaments,sel:S.sel,fil:S.fil,fType:S.fType,fColor:S.fColor,fBrand:S.fBrand,customMats:S.customMats,mod:S.mod,dirty:S.dirty}))}catch(e){}
+  try{localStorage.setItem(KEY,JSON.stringify({cfg:S.cfg,printers:S.printers,filaments:S.filaments,sel:S.sel,fil:S.fil,fType:S.fType,fColor:S.fColor,fBrand:S.fBrand,customMats:S.customMats,mod:S.mod,dirty:S.dirty,pcs:S.pcs,mode:S.mode,gh:S.gh,gf:S.gf}))}catch(e){}
 }
 function num(v,d){var n=parseFloat(String(v).replace(",","."));return isNaN(n)?(d||0):n}
 function mxn(n){return "$"+n.toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2})}
@@ -289,7 +316,7 @@ document.querySelectorAll("nav button").forEach(function(b){
 });
 
 /* Parámetros */
-var cfgMap={"c-fil":"fil","c-kwh":"kwh","c-post":"post","c-risk":"risk","c-mult":"mult"};
+var cfgMap={"c-fil":"fil","c-kwh":"kwh","c-post":"post","c-risk":"risk","c-mult":"mult","c-labor":"labor"};
 function fillCfg(){for(var id in cfgMap)$(id).value=S.cfg[cfgMap[id]]}
 Object.keys(cfgMap).forEach(function(id){
   $(id).oninput=function(){S.cfg[cfgMap[id]]=num($(id).value);save();renderFilSel()};
@@ -328,13 +355,13 @@ function renderFilSel(){
   $("f3").innerHTML=brs.length?brs.map(function(f){return '<option value="'+esc(f.brand)+'">'+esc(f.brand)+' — '+mxn(gcost(f))+'/g</option>'}).join(""):'<option value="">—</option>';
   $("f3").value=S.fBrand;$("f3").disabled=!brs.length;
   $("filhint").textContent=!p?"Activa una impresora en la pestaña Impresoras.":(!list.length?"Ningún filamento activo es compatible con esta impresora; se usará el costo general.":(fl?"Filamento seleccionado: "+mxn(gcost(fl))+" por gramo.":"Se usará el costo general."));
-  save();
+  renderPcs();save();
 }
 $("f1").onchange=function(){S.fType=$("f1").value;renderFilSel()};
 $("f3").onchange=function(){S.fBrand=$("f3").value;renderFilSel()};
 $("f2b").onclick=function(e){e.stopPropagation();$("f2l").classList.toggle("open")};
 $("f2l").onclick=function(e){var o=e.target.closest(".cs-o");if(!o)return;S.fColor=o.dataset.c;$("f2l").classList.remove("open");renderFilSel()};
-document.addEventListener("click",function(){$("f2l").classList.remove("open")});
+document.addEventListener("click",closeCs);
 $("printer").onchange=function(){S.sel=$("printer").value;S.fil="";renderFilSel()};
 
 /* Impresoras */
@@ -443,8 +470,132 @@ $("calc").onclick=function(){
   $("r-profit").textContent=mxn(direct-cost);
   $("r-market").textContent=mxn(direct*1.28);
   $("r-unit").textContent=mxn(direct/q);
+  $("row-unit").style.display="";$("r-det").innerHTML="";
   var t=$("disc");
   if(d>0){t.style.display="";t.textContent="Descuento por volumen aplicado: -"+(d*100)+"%"}else t.style.display="none";
+  $("out").style.display="block";
+  $("out").scrollIntoView({behavior:"smooth",block:"start"});
+};
+
+/* ===== Proyecto Multi-Pieza ===== */
+function closeCs(){document.querySelectorAll(".cs-list.open").forEach(function(x){x.classList.remove("open")})}
+function tfmt(h,m){return((h?h+" h ":"")+(m?m+" min":"")).trim()||"—"}
+function newPc(){return {id:"x"+Date.now()+Math.random().toString(36).slice(2,5),name:"",pr:S.sel||"",ty:null,co:"",br:"",g:"",h:"",m:"",q:"1"}}
+function pchain(pc){
+  var ap=activePrinters();
+  if(!ap.some(function(p){return p.id===pc.pr}))pc.pr=ap.length?ap[0].id:"";
+  var p=pf(pc.pr),list=compat(p),types=uniq(list,"type");
+  if(pc.ty!==""&&(pc.ty==null||!types.some(function(f){return f.type===pc.ty})))pc.ty=types.length?types[0].type:"";
+  var byT=pc.ty?list.filter(function(f){return f.type===pc.ty}):[],cols=uniq(byT,"color");
+  if(!cols.some(function(f){return f.color===pc.co}))pc.co=cols.length?cols[0].color:"";
+  var byC=byT.filter(function(f){return f.color===pc.co}),brs=uniq(byC,"brand");
+  if(!brs.some(function(f){return f.brand===pc.br}))pc.br=brs.length?brs[0].brand:"";
+  return {p:p,types:types,cols:cols,brs:brs,fl:byC.find(function(f){return f.brand===pc.br})||null};
+}
+function pcCalc(pc,ch){
+  if(!ch.p)return null;
+  var c=S.cfg,hours=num(pc.h)+num(pc.m)/60,g=num(pc.g),q=Math.max(1,Math.floor(num(pc.q,1)));
+  var gc=ch.fl?gcost(ch.fl):c.fil/1000;
+  var unit=(g*gc+hours*ch.p.kw*c.kwh+hours*ch.p.wear)*(1+c.risk/100);
+  return {unit:unit,total:unit*q,q:q,g:g,hours:hours};
+}
+function updCosts(){
+  var tot=0;
+  S.pcs.forEach(function(pc,i){
+    var el=$("pcc-"+i),r=pcCalc(pc,pchain(pc));if(!el)return;
+    if(!r){el.textContent="Activa una impresora para calcular";return}
+    tot+=r.total;
+    el.textContent="Costo de esta pieza: "+mxn(r.total)+(r.q>1?" ("+r.q+" × "+mxn(r.unit)+")":"");
+  });
+  $("pc-sub").textContent=S.pcs.length?"Subtotal de fabricación de las piezas: "+mxn(tot):"";
+}
+function renderPcs(){
+  var ap=activePrinters();
+  $("pcs").innerHTML=S.pcs.map(function(pc,i){
+    var ch=pchain(pc),d=' data-i="'+i+'"';
+    var cur=ch.cols.find(function(f){return f.color===pc.co});
+    var pS=ap.length?ap.map(function(p){return '<option value="'+p.id+'"'+(p.id===pc.pr?" selected":"")+'>'+esc(p.name)+'</option>'}).join(""):'<option value="">Sin impresoras activas</option>';
+    var tS='<option value="">Costo general ('+mxn(S.cfg.fil)+'/kg)</option>'+ch.types.map(function(f){return '<option value="'+esc(f.type)+'"'+(f.type===pc.ty?" selected":"")+'>'+esc(f.type)+'</option>'}).join("");
+    var cL=ch.cols.map(function(f){return '<div class="cs-o" data-i="'+i+'" data-c="'+esc(f.color)+'">'+dot(f)+esc(f.color)+'</div>'}).join("");
+    var bS=ch.brs.length?ch.brs.map(function(f){return '<option value="'+esc(f.brand)+'"'+(f.brand===pc.br?" selected":"")+'>'+esc(f.brand)+' — '+mxn(gcost(f))+'/g</option>'}).join(""):'<option value="">—</option>';
+    return '<div class="card"><div class="phead"><b>Pieza '+(i+1)+'</b><span><button class="sec xs" data-a="dup"'+d+'>📄 Duplicar</button><button class="bad xs" data-a="rm"'+d+'>🗑️</button></span></div>'+
+    '<label>Nombre de la pieza</label><input type="text"'+d+' data-k="name" value="'+esc(pc.name)+'" placeholder="Ej. Cabeza, Manos, Cama 1">'+
+    '<label>Impresora</label><select'+d+' data-k="pr">'+pS+'</select>'+
+    '<label>Tipo de material</label><select'+d+' data-k="ty">'+tS+'</select>'+
+    '<label>Color del filamento</label><div class="cs"><button type="button" class="cs-btn" data-a="cbtn"'+d+(ch.cols.length?"":" disabled")+'>'+(cur?dot(cur)+esc(cur.color):'<span style="color:var(--mut)">—</span>')+'</button><div class="cs-list" id="cl'+i+'">'+cL+'</div></div>'+
+    '<label>Marca del filamento</label><select'+d+' data-k="br"'+(ch.brs.length?"":" disabled")+'>'+bS+'</select>'+
+    '<div class="row"><div><label>Peso por pieza (g)</label><input type="number" inputmode="decimal" step="0.1"'+d+' data-k="g" value="'+esc(pc.g)+'"></div><div><label>Cantidad</label><input type="number" inputmode="numeric" min="1"'+d+' data-k="q" value="'+esc(pc.q)+'"></div></div>'+
+    '<label>Tiempo de impresión por pieza</label><div class="row"><input type="number" inputmode="numeric" min="0" placeholder="Horas"'+d+' data-k="h" value="'+esc(pc.h)+'"><input type="number" inputmode="numeric" min="0" max="59" placeholder="Minutos"'+d+' data-k="m" value="'+esc(pc.m)+'"></div>'+
+    '<div class="gcost" id="pcc-'+i+'"></div></div>';
+  }).join("");
+  updCosts();
+}
+$("pcs").onclick=function(e){
+  var o=e.target.closest(".cs-o");
+  if(o){S.pcs[+o.dataset.i].co=o.dataset.c;renderPcs();save();return}
+  var b=e.target.closest("button");if(!b)return;
+  var i=+b.dataset.i,a=b.dataset.a;
+  if(a==="cbtn"){e.stopPropagation();var l=$("cl"+i),was=l.classList.contains("open");closeCs();if(!was)l.classList.add("open");return}
+  if(a==="rm"){S.pcs.splice(i,1);renderPcs();save()}
+  if(a==="dup"){var c=Object.assign({},S.pcs[i]);c.id=newPc().id;c.name=c.name?c.name+" (copia)":"";S.pcs.splice(i+1,0,c);renderPcs();save()}
+};
+$("pcs").onchange=function(e){
+  var t=e.target,i=+t.dataset.i,k=t.dataset.k;
+  if(isNaN(i)||!k||t.tagName!=="SELECT")return;
+  S.pcs[i][k]=t.value;renderPcs();save();
+};
+$("pcs").oninput=function(e){
+  var t=e.target,i=+t.dataset.i,k=t.dataset.k;
+  if(isNaN(i)||!k||t.tagName==="SELECT")return;
+  S.pcs[i][k]=t.value;updCosts();save();
+};
+$("addpc").onclick=function(){S.pcs.push(newPc());renderPcs();save();toast("Pieza agregada")};
+$("g-hrs").oninput=function(){S.gh=this.value;save()};
+$("g-fix").oninput=function(){S.gf=this.value;save()};
+function setMode(m){
+  S.mode=m;
+  $("mode-q").style.display=m==="q"?"block":"none";
+  $("mode-p").style.display=m==="p"?"block":"none";
+  $("m-q").classList.toggle("on",m==="q");$("m-p").classList.toggle("on",m==="p");
+  $("out").style.display="none";
+  if(m==="p"&&!S.pcs.length){S.pcs.push(newPc());renderPcs()}
+  save();
+}
+$("m-q").onclick=function(){setMode("q")};
+$("m-p").onclick=function(){setMode("p")};
+function brk(e){
+  var h='<div class="hint" style="margin:10px 0 2px">Desglose del proyecto</div>';
+  function row(a,b){return '<div class="res"><span>'+a+'</span><b style="font-size:16px">'+b+'</b></div>'}
+  e.items.forEach(function(it){h+=row(esc(it.name)+(it.q>1?" ×"+it.q:"")+'<br><small>'+esc(it.mat)+' · '+it.g+' g · '+tfmt(it.h,it.m)+'</small>',mxn(it.cost))});
+  if(e.post>0)h+=row("Insumos de posprocesado",mxn(e.post));
+  if(e.labor>0)h+=row("Ensamble / post-procesado ("+e.asmH+" h)",mxn(e.labor));
+  if(e.fixed>0)h+=row("Preparación de cama / lote",mxn(e.fixed));
+  return h;
+}
+$("calcp").onclick=function(){
+  if(!S.pcs.length){toast("Agrega al menos una pieza");return}
+  var c=S.cfg,items=[],sub=0,units=0,grams=0,prs=[],bad=false;
+  S.pcs.forEach(function(pc,i){
+    var ch=pchain(pc),r=pcCalc(pc,ch);
+    if(!r||(r.g<=0&&r.hours<=0)){bad=true;return}
+    var nm=(pc.name||"").trim()||"Pieza "+(i+1);
+    items.push({name:nm,printer:ch.p.name,mat:ch.fl?fname(ch.fl):"Costo general",g:r.g,h:num(pc.h),m:num(pc.m),q:r.q,unit:r.unit,cost:r.total});
+    sub+=r.total;units+=r.q;grams+=r.g*r.q;
+    if(prs.indexOf(ch.p.name)<0)prs.push(ch.p.name);
+  });
+  if(bad){toast("Revisa las piezas: impresora activa y peso o tiempo");return}
+  var gh=num(S.gh),gf=num(S.gf),labor=gh*c.labor;
+  var cost=sub+c.post+labor+gf,direct=cost*c.mult;
+  var entry={id:"h"+Date.now(),ts:Date.now(),name:$("proj").value.trim(),photo:S.photo||"",type:"multi",items:items,post:c.post,asmH:gh,labor:labor,fixed:gf,
+    printer:prs.join(", "),mat:"Proyecto multi-pieza",g:grams,h:0,m:0,q:units,cost:cost,direct:direct,profit:direct-cost,market:direct*1.28,d:0,unit:direct};
+  S.last=entry;addHist(entry);
+  $("r-cost").textContent=mxn(cost);
+  $("r-direct").textContent=mxn(direct);
+  $("r-profit").textContent=mxn(direct-cost);
+  $("r-market").textContent=mxn(direct*1.28);
+  $("row-unit").style.display="none";
+  $("disc").style.display="none";
+  $("r-det").innerHTML=brk(entry);
   $("out").style.display="block";
   $("out").scrollIntoView({behavior:"smooth",block:"start"});
 };
@@ -459,7 +610,17 @@ function copyText(t){
     document.body.removeChild(ta);
   });
 }
+function buildWAP(r){
+  var l="*COTIZACIÓN DE PROYECTO 3D*\n\n"+(r.name?"🧩 Proyecto: "+r.name+"\n":"")+"📦 Piezas del proyecto ("+r.items.length+"):\n";
+  r.items.forEach(function(it){
+    l+="\n• "+it.name+(it.q>1?" ×"+it.q:"")+"\n"+(it.mat!=="Costo general"?"   🧵 "+it.mat+"\n":"")+"   ⚖️ "+it.g+" g · ⏱️ "+tfmt(it.h,it.m)+"\n";
+  });
+  if(r.asmH>0)l+="\n🔧 Ensamble y acabado: "+r.asmH+" h\n";
+  l+="\n💵 *TOTAL DEL PROYECTO: "+mxn(r.direct)+" MXN*\n\nPrecios en pesos mexicanos. ¡Gracias por tu preferencia!";
+  return l;
+}
 function buildWA(r){
+  if(r.items)return buildWAP(r);
   var tiempo=((r.h?r.h+" h ":"")+(r.m?r.m+" min":"")).trim()||"—";
   return "*COTIZACIÓN DE IMPRESIÓN 3D*\n\n"+
     (r.name?"🧩 Proyecto: "+r.name+"\n":"")+
@@ -538,13 +699,17 @@ $("hlist").onclick=function(e){
 };
 function showDetail(id){
   var e=hf(id);if(!e)return;S.view=id;
-  var t=((e.h?e.h+" h ":"")+(e.m?e.m+" min":"")).trim()||"—";
   function row(a,b){return '<div class="res"><span>'+a+'</span><b>'+b+'</b></div>'}
-  $("mbody").innerHTML=(e.photo?'<img src="'+e.photo+'" alt="">':'')+'<h3>'+esc(e.name||"Sin nombre")+'</h3><div class="hint">'+fdate(e.ts)+'</div>'+
-    row("Impresora",esc(e.printer))+row("Filamento",esc(e.mat))+row("Piezas",e.q)+row("Peso por pieza",e.g+" g")+row("Tiempo por pieza",t)+
-    (e.d>0?row("Descuento por volumen","-"+(e.d*100)+"%"):"")+
-    row("Costo de fabricación",mxn(e.cost))+row("Precio sugerido directo",'<span style="color:var(--ok);max-width:none">'+mxn(e.direct)+'</span>')+
-    row("Precio por pieza",mxn(e.unit))+row("Ganancia neta",mxn(e.profit))+row("Precio Marketplaces",mxn(e.market));
+  var head=(e.photo?'<img src="'+e.photo+'" alt="">':'')+'<h3>'+esc(e.name||"Sin nombre")+'</h3><div class="hint">'+fdate(e.ts)+'</div>';
+  var tail=row("Costo de fabricación",mxn(e.cost))+row("Precio sugerido directo",'<span style="color:var(--ok);max-width:none">'+mxn(e.direct)+'</span>');
+  var body;
+  if(e.items){
+    body=row("Tipo","Proyecto multi-pieza")+row("Impresoras",esc(e.printer))+brk(e)+tail+row("Ganancia neta",mxn(e.profit))+row("Precio Marketplaces",mxn(e.market));
+  }else{
+    body=row("Impresora",esc(e.printer))+row("Filamento",esc(e.mat))+row("Piezas",e.q)+row("Peso por pieza",e.g+" g")+row("Tiempo por pieza",tfmt(e.h,e.m))+
+      (e.d>0?row("Descuento por volumen","-"+(e.d*100)+"%"):"")+tail+row("Precio por pieza",mxn(e.unit))+row("Ganancia neta",mxn(e.profit))+row("Precio Marketplaces",mxn(e.market));
+  }
+  $("mbody").innerHTML=head+body;
   $("modal").classList.add("open");
 }
 function closeModal(){$("modal").classList.remove("open");S.view=""}
@@ -629,7 +794,7 @@ function renderY(){
   $("y-st").textContent=!cfgOK()?"⚠️ Nube no configurada: pega tu apiKey y projectId de Firebase al inicio del código (ver instrucciones).":(on?"Cuenta: "+Y.email+(Y.last?" · Último respaldo: "+fdate(Y.last):" · Aún sin respaldo"):"Inicia sesión o crea una cuenta para respaldar tus datos.");
 }
 function prog(pc,m){$("bar").style.display="block";$("barf").style.width=pc+"%";$("bartx").textContent=m}
-function refreshAll(){fillCfg();fillTypes();renderMatBoxes(checkedMats());renderPrn();renderFil();renderQ();renderHist()}
+function refreshAll(){fillCfg();fillTypes();renderMatBoxes(checkedMats());renderPrn();renderFil();renderQ();renderHist();renderPcs()}
 function schedSync(){
   setPill();
   if(tmr)clearTimeout(tmr);
@@ -715,6 +880,7 @@ window.addEventListener("online",function(){setPill();toast("Conexión recuperad
 window.addEventListener("offline",function(){setPill();toast("Sin conexión: se guarda solo en este celular")});
 
 load();fillCfg();fillTypes();renderMatBoxes(["PLA","PETG"]);renderPrn();renderFil();renderQ();renderHist();renderY();setPill();
+$("g-hrs").value=S.gh;$("g-fix").value=S.gf;setMode(S.mode==="p"?"p":"q");
 if(navigator.onLine&&Y.uid)setTimeout(function(){syncAll(false)},1500);
 })();
 </script>
