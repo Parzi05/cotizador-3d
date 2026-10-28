@@ -14,7 +14,7 @@ h1{font-size:20px;margin:4px 0 14px}
 h2{font-size:15px;color:var(--mut);margin:18px 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px}
 label{display:block;font-size:13px;color:var(--mut);margin:10px 0 5px}
-input[type=text],input[type=number],select{width:100%;min-height:50px;font-size:17px;padding:10px 12px;background:var(--card2);color:var(--tx);border:1px solid var(--bd);border-radius:12px;outline:none}
+input[type=text],input[type=number],input[type=email],input[type=password],select{width:100%;min-height:50px;font-size:17px;padding:10px 12px;background:var(--card2);color:var(--tx);border:1px solid var(--bd);border-radius:12px;outline:none}
 input:focus,select:focus{border-color:var(--ac)}
 .row{display:flex;gap:10px}.row>*{flex:1}
 button{min-height:54px;font-size:16px;font-weight:700;border:0;border-radius:14px;padding:0 16px;color:#fff;background:var(--ac);width:100%}
@@ -75,6 +75,9 @@ nav button.on{color:var(--ac)}
 .mbox h3{margin:0 0 4px;font-size:18px}
 .mbox .res b{font-size:16px;text-align:right}
 .mbox .res span{max-width:45%}
+.pill{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));right:10px;z-index:30;font-size:12px;padding:5px 11px;border-radius:99px;background:#000c;border:1px solid var(--bd);display:none}
+.bar{display:none;height:14px;margin-top:12px;background:var(--card2);border:1px solid var(--bd);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),var(--ok));transition:width .35s}
 </style>
 </head>
 <body>
@@ -138,6 +141,22 @@ nav button.on{color:var(--ac)}
     <div class="hint">Se guardan automáticamente al escribir.</div>
     <div class="btns"><button id="reset" class="sec">Restablecer valores predeterminados</button></div>
   </div>
+  <div class="card">
+    <h2 style="margin-top:0">☁️ Respaldo en la nube</h2>
+    <div class="hint" id="y-st"></div>
+    <div id="y-login">
+      <label>Correo electrónico</label>
+      <input id="y-email" type="email" autocomplete="username" placeholder="tucorreo@ejemplo.com">
+      <label>Contraseña (mínimo 6 caracteres)</label>
+      <input id="y-pass" type="password" autocomplete="current-password">
+      <div class="btns"><button id="y-in">Iniciar sesión</button><button id="y-up" class="sec">Crear cuenta</button></div>
+    </div>
+    <div id="y-out" style="display:none"><div class="btns"><button id="y-logout" class="sec">Cerrar sesión</button></div></div>
+    <div class="btns"><button id="y-sync" class="ok">☁️ Sincronizar Datos con la Nube</button></div>
+    <div class="bar" id="bar"><i id="barf"></i></div>
+    <div class="hint" id="bartx"></div>
+    <div class="hint">La app trabaja sin internet. Al reconectarse, respalda sola tus cambios. En un celular nuevo, inicia sesión con la misma cuenta y se restaura todo.</div>
+  </div>
 </section>
 
 <section id="t-prn" class="tab">
@@ -195,6 +214,8 @@ nav button.on{color:var(--ac)}
   <div class="btns"><button id="mwa" class="ok">📋 Copiar cotización para WhatsApp</button></div>
   <div class="btns"><button id="mx" class="sec">Cerrar</button></div></div></div>
 
+<div id="pill" class="pill"></div>
+
 <nav>
   <button data-t="t-cot" class="on"><span>🧮</span>Cotizador</button>
   <button data-t="t-cfg"><span>⚙️</span>Parámetros</button>
@@ -207,6 +228,9 @@ nav button.on{color:var(--ac)}
 <script>
 (function(){
 "use strict";
+/* ===== CONFIGURA TU FIREBASE AQUÍ (ver instrucciones) ===== */
+var FIREBASE={apiKey:"AIzaSyAPfOITV94spaR9KvxJxKiXU6D7z0BBxLA",projectId:"cotizador3d-669a8"};
+/* ========================================================== */
 var $=function(id){return document.getElementById(id)};
 var KEY="cot3d_v1",HKEY="cot3d_hist_v1";
 var MATS=["PLA","PLA+","PETG","ABS","ASA","TPU","Nylon (PA)","Policarbonato (PC)","HIPS","PVA","Polipropileno (PP)","PEEK","PEI (ULTEM)","PCTG","PLA-CF","PETG-CF","PA-CF","PA-GF","PC-CF"];
@@ -216,7 +240,7 @@ var DEF_CFG={fil:560,kwh:4.5,post:8,risk:10,mult:2.2};
 var S={cfg:Object.assign({},DEF_CFG),
   printers:[{id:"p1",name:"Flashforge Adventurer 5M Pro",kw:0.15,wear:3.33,active:true,mats:["PLA","PETG","TPU","ABS","ASA","PLA-CF"]}],
   filaments:[{id:"f1",type:"PLA",brand:"Genérico",color:"Negro",price:560,weight:1000,active:true}],
-  sel:"p1",fil:"",fType:null,fColor:"",fBrand:"",customMats:[],hist:[],photo:"",view:"",pt:"",last:null};
+  sel:"p1",fil:"",fType:null,fColor:"",fBrand:"",customMats:[],mod:0,dirty:false,hist:[],photo:"",view:"",pt:"",last:null};
 var editP=null,editF=null;
 
 function load(){
@@ -226,6 +250,7 @@ function load(){
     if(d.filaments)S.filaments=d.filaments;
     if(d.sel)S.sel=d.sel;if(d.fil!==undefined)S.fil=d.fil;
     if(d.customMats)S.customMats=d.customMats;
+    if(d.mod)S.mod=d.mod;if(d.dirty)S.dirty=d.dirty;
     if(d.fType!==undefined)S.fType=d.fType;if(d.fColor)S.fColor=d.fColor;if(d.fBrand)S.fBrand=d.fBrand;}}catch(e){}
   try{var hh=localStorage.getItem(HKEY);if(hh)S.hist=JSON.parse(hh)||[]}catch(e){}
   var mig=function(t){return t==="PLA-CF / Técnico"?"PLA-CF":t};
@@ -235,8 +260,16 @@ function load(){
     p.mats=p.mats.map(mig);
   });
   S.filaments.forEach(function(f){if(f.active===undefined)f.active=true;f.type=mig(f.type);if(!f.hex)f.hex=guessHex(f.color)});
+  S.lastSP=synPart();
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify({cfg:S.cfg,printers:S.printers,filaments:S.filaments,sel:S.sel,fil:S.fil,fType:S.fType,fColor:S.fColor,fBrand:S.fBrand,customMats:S.customMats}))}catch(e){}}
+function synPart(){return JSON.stringify({cfg:S.cfg,printers:S.printers,filaments:S.filaments,customMats:S.customMats})}
+function synObj(){return {cfg:S.cfg,printers:S.printers,filaments:S.filaments,customMats:S.customMats}}
+function save(){
+  var sp=synPart();
+  if(S.lastSP!==undefined&&sp!==S.lastSP){S.mod=Date.now();S.dirty=true;schedSync()}
+  S.lastSP=sp;
+  try{localStorage.setItem(KEY,JSON.stringify({cfg:S.cfg,printers:S.printers,filaments:S.filaments,sel:S.sel,fil:S.fil,fType:S.fType,fColor:S.fColor,fBrand:S.fBrand,customMats:S.customMats,mod:S.mod,dirty:S.dirty}))}catch(e){}
+}
 function num(v,d){var n=parseFloat(String(v).replace(",","."));return isNaN(n)?(d||0):n}
 function mxn(n){return "$"+n.toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2})}
 function toast(t){var el=$("toast");el.textContent=t;el.className="show";setTimeout(function(){el.className=""},2000)}
@@ -467,9 +500,9 @@ $("phf").onchange=function(){readImg(this.files[0],function(d){S.photo=d;showPv(
 $("pvx").onclick=function(){S.photo="";showPv()};
 $("phu").onchange=function(){
   var id=S.pt;readImg(this.files[0],function(d){
-    var e=hf(id);if(!e)return;var old=e.photo;e.photo=d;
-    if(!saveHist()){e.photo=old;toast("Sin espacio para la foto: elimina cotizaciones")}
-    else{renderHist();toast("Foto actualizada")}
+    var e=hf(id);if(!e)return;var old=e.photo,os=e.sy;e.photo=d;e.sy=false;
+    if(!saveHist()){e.photo=old;e.sy=os;toast("Sin espacio para la foto: elimina cotizaciones")}
+    else{renderHist();schedSync();toast("Foto actualizada")}
   });this.value="";
 };
 
@@ -484,7 +517,7 @@ function addHist(e){
     if(saveHist())toast("Guardada sin foto: almacenamiento lleno");
     else{S.hist.shift();toast("No se pudo guardar: almacenamiento lleno")}
   }
-  renderHist();
+  renderHist();schedSync();
 }
 function fdate(t){return new Date(t).toLocaleString("es-MX",{dateStyle:"medium",timeStyle:"short"})}
 function renderHist(){
@@ -501,7 +534,7 @@ $("hlist").onclick=function(e){
   if(a==="view")showDetail(id);
   if(a==="photo"){S.pt=id;$("phu").click()}
   if(a==="del"&&confirm("¿Eliminar esta cotización del historial?")){
-    S.hist=S.hist.filter(function(x){return x.id!==id});saveHist();renderHist();toast("Eliminada")}
+    S.hist=S.hist.filter(function(x){return x.id!==id});if(Y.del.indexOf(id)<0)Y.del.push(id);saveY();saveHist();renderHist();schedSync();toast("Eliminada")}
 };
 function showDetail(id){
   var e=hf(id);if(!e)return;S.view=id;
@@ -528,7 +561,161 @@ $("modal").onclick=function(e){if(e.target===this)closeModal()};
   if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(function(){});
 })();
 
-load();fillCfg();fillTypes();renderMatBoxes(["PLA","PETG"]);renderPrn();renderFil();renderQ();renderHist();
+/* ===== Nube: Firebase (Auth + Firestore por REST, sin librerías) ===== */
+var SKEY="cot3d_sync_v1";
+var Y={email:"",uid:"",rt:"",it:"",exp:0,last:0,del:[]};
+try{var yy=localStorage.getItem(SKEY);if(yy)Y=Object.assign(Y,JSON.parse(yy))}catch(e){}
+function saveY(){try{localStorage.setItem(SKEY,JSON.stringify(Y))}catch(e){}}
+function cfgOK(){return !!(FIREBASE.apiKey&&FIREBASE.projectId)}
+var busy=false,tmr=null;
+function api(url,opt){
+  return fetch(url,opt).then(function(r){
+    return r.json().catch(function(){return {}}).then(function(j){
+      if(!r.ok){var e=new Error((j.error&&j.error.message)||("HTTP "+r.status));e.code=r.status;throw e}
+      return j;
+    });
+  });
+}
+function msgErr(m){
+  m=String(m||"");
+  if(/EMAIL_EXISTS/.test(m))return "Ese correo ya tiene cuenta: usa Iniciar sesión";
+  if(/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND/.test(m))return "Correo o contraseña incorrectos";
+  if(/WEAK_PASSWORD/.test(m))return "Contraseña muy débil (mínimo 6 caracteres)";
+  if(/INVALID_EMAIL/.test(m))return "Correo no válido";
+  if(/OPERATION_NOT_ALLOWED/.test(m))return "Activa Correo/Contraseña en Firebase Authentication";
+  if(/TOKEN_EXPIRED|INVALID_REFRESH|USER_NOT_FOUND|USER_DISABLED/.test(m))return "Sesión expirada: inicia sesión de nuevo";
+  if(/permission|PERMISSION/.test(m))return "Permiso denegado: revisa las reglas de Firestore";
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m))return "No se pudo conectar con la nube";
+  return m||"Error desconocido";
+}
+function authCall(kind,email,pw){
+  return api("https://identitytoolkit.googleapis.com/v1/accounts:"+kind+"?key="+FIREBASE.apiKey,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,password:pw,returnSecureToken:true})}).then(function(j){
+    Y.email=email;Y.uid=j.localId;Y.rt=j.refreshToken;Y.it=j.idToken;Y.exp=Date.now()+(+j.expiresIn-60)*1000;saveY();
+  });
+}
+function token(){
+  if(Y.it&&Date.now()<Y.exp)return Promise.resolve(Y.it);
+  return api("https://securetoken.googleapis.com/v1/token?key="+FIREBASE.apiKey,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(Y.rt)}).then(function(j){
+    Y.it=j.id_token;Y.rt=j.refresh_token;Y.exp=Date.now()+(+j.expires_in-60)*1000;saveY();return Y.it;
+  });
+}
+function fs(path,method,body){
+  return token().then(function(t){
+    return api("https://firestore.googleapis.com/v1/projects/"+FIREBASE.projectId+"/databases/(default)/documents/users/"+Y.uid+"/"+path,{method:method||"GET",headers:{"Authorization":"Bearer "+t,"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
+  });
+}
+function mk(d,ts){return {fields:{d:{stringValue:JSON.stringify(d)},ts:{integerValue:String(ts)}}}}
+function rd(doc){try{return doc&&doc.fields?JSON.parse(doc.fields.d.stringValue):null}catch(e){return null}}
+function listHist(tk,acc){
+  return fs("hist?pageSize=100"+(tk?"&pageToken="+encodeURIComponent(tk):"")).then(function(j){
+    var a=acc.concat(j.documents||[]);return j.nextPageToken?listHist(j.nextPageToken,a):a;
+  });
+}
+function pending(){return S.dirty||Y.del.length>0||S.hist.some(function(e){return !e.sy})}
+function setPill(){
+  var p=$("pill"),t,c="var(--ok)";
+  if(!navigator.onLine){t="📴 Sin conexión";c="var(--warn)"}
+  else if(!cfgOK()){p.style.display="none";return}
+  else if(!Y.uid){t="☁️ Sin respaldo";c="var(--warn)"}
+  else if(busy){t="🔄 Sincronizando…";c="var(--ac)"}
+  else if(pending()){t="☁️ Pendiente";c="var(--warn)"}
+  else t="☁️ Respaldado";
+  p.textContent=t;p.style.color=c;p.style.display="block";
+}
+function renderY(){
+  var on=!!Y.uid;
+  $("y-login").style.display=on?"none":"block";
+  $("y-out").style.display=on?"block":"none";
+  $("y-st").textContent=!cfgOK()?"⚠️ Nube no configurada: pega tu apiKey y projectId de Firebase al inicio del código (ver instrucciones).":(on?"Cuenta: "+Y.email+(Y.last?" · Último respaldo: "+fdate(Y.last):" · Aún sin respaldo"):"Inicia sesión o crea una cuenta para respaldar tus datos.");
+}
+function prog(pc,m){$("bar").style.display="block";$("barf").style.width=pc+"%";$("bartx").textContent=m}
+function refreshAll(){fillCfg();fillTypes();renderMatBoxes(checkedMats());renderPrn();renderFil();renderQ();renderHist()}
+function schedSync(){
+  setPill();
+  if(tmr)clearTimeout(tmr);
+  tmr=setTimeout(function(){syncAll(false)},3000);
+}
+function syncAll(manual){
+  if(busy)return Promise.resolve();
+  if(!cfgOK()||!Y.uid||!navigator.onLine){
+    if(manual)toast(!cfgOK()?"Falta configurar Firebase en el código":(!Y.uid?"Inicia sesión en la nube primero":"Sin conexión a internet"));
+    return Promise.resolve();
+  }
+  busy=true;setPill();prog(5,"Conectando…");
+  var cdoc=null;
+  return fs("meta/settings").catch(function(e){if(e.code===404)return null;throw e})
+  .then(function(d){
+    cdoc=d;prog(15,"Descargando perfiles…");
+    var cts=d&&d.fields?+d.fields.ts.integerValue:0,c=d?rd(d):null;
+    if(c&&Array.isArray(c.printers)&&c.printers.length&&cts>S.mod){ // la nube es más reciente: restaurar
+      S.cfg=Object.assign({},DEF_CFG,c.cfg);S.printers=c.printers;S.filaments=c.filaments||[];S.customMats=c.customMats||[];
+      S.mod=cts;S.dirty=false;S.lastSP=synPart();cdoc=true;
+    }
+    return listHist("",[]);
+  })
+  .then(function(list){
+    prog(35,"Descargando historial…");
+    var cloud={};
+    list.forEach(function(d){var e=rd(d);if(e&&e.id)cloud[e.id]=e});
+    S.hist=S.hist.filter(function(e){return !e.sy||cloud[e.id]});
+    Object.keys(cloud).forEach(function(id){
+      if(!hf(id)&&Y.del.indexOf(id)<0){var e=cloud[id];e.sy=true;S.hist.push(e)}
+    });
+    var needSet=(cdoc===null)||(cdoc!==true&&S.dirty);
+    prog(45,"Sincronizando perfiles…");
+    if(!needSet)return 0;
+    S.mod=S.mod||Date.now();
+    return fs("meta/settings","PATCH",mk(synObj(),S.mod)).then(function(){S.dirty=false});
+  })
+  .then(function(){
+    var pend=S.hist.filter(function(e){return !e.sy}),n=pend.length,i=0;
+    prog(55,"Guardando historial…");
+    return pend.reduce(function(pr,e){return pr.then(function(){
+      prog(55+Math.round(35*i/Math.max(n,1)),"Guardando historial ("+(i+1)+" de "+n+")…");
+      var c=Object.assign({},e);delete c.sy;
+      return fs("hist/"+e.id,"PATCH",mk(c,e.ts)).then(function(){e.sy=true;i++;saveHist()});
+    })},Promise.resolve());
+  })
+  .then(function(){
+    prog(92,"Aplicando eliminaciones…");
+    return Y.del.slice().reduce(function(pr,id){return pr.then(function(){
+      return fs("hist/"+id,"DELETE").catch(function(e){if(e.code!==404)throw e});
+    })},Promise.resolve()).then(function(){Y.del=[]});
+  })
+  .then(function(){
+    Y.last=Date.now();saveY();save();saveHist();refreshAll();
+    prog(100,"¡Resguardo completado con éxito!");
+    if(manual)toast("Respaldo completado ✓");
+  })
+  .catch(function(e){prog(0,"Error: "+msgErr(e.message));if(manual)toast(msgErr(e.message))})
+  .then(function(){
+    busy=false;setPill();renderY();
+    setTimeout(function(){if(!busy)$("bar").style.display="none"},4000);
+  });
+}
+function doAuth(kind){
+  var em=$("y-email").value.trim(),pw=$("y-pass").value;
+  if(!cfgOK()){toast("Falta configurar Firebase en el código");return}
+  if(!navigator.onLine){toast("Necesitas internet para iniciar sesión");return}
+  if(!em||pw.length<6){toast("Escribe correo y contraseña (mín. 6 caracteres)");return}
+  authCall(kind,em,pw).then(function(){
+    $("y-pass").value="";renderY();toast("Sesión iniciada");return syncAll(true);
+  }).catch(function(e){toast(msgErr(e.message))});
+}
+$("y-in").onclick=function(){doAuth("signInWithPassword")};
+$("y-up").onclick=function(){doAuth("signUp")};
+$("y-sync").onclick=function(){syncAll(true)};
+$("y-logout").onclick=function(){
+  if(confirm("¿Cerrar sesión? Tus datos locales se conservan en este celular.")){
+    Y.uid="";Y.rt="";Y.it="";Y.email="";Y.exp=0;saveY();renderY();setPill();
+  }
+};
+$("pill").onclick=function(){document.querySelector('nav button[data-t="t-cfg"]').click()};
+window.addEventListener("online",function(){setPill();toast("Conexión recuperada: sincronizando…");syncAll(false)});
+window.addEventListener("offline",function(){setPill();toast("Sin conexión: se guarda solo en este celular")});
+
+load();fillCfg();fillTypes();renderMatBoxes(["PLA","PETG"]);renderPrn();renderFil();renderQ();renderHist();renderY();setPill();
+if(navigator.onLine&&Y.uid)setTimeout(function(){syncAll(false)},1500);
 })();
 </script>
 </body>
