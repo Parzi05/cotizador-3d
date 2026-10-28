@@ -84,6 +84,9 @@ nav button.on{color:var(--ac)}
 button.xs{width:auto;min-height:40px;font-size:13px;padding:0 12px}
 .phead{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .phead span{display:flex;gap:6px}
+.seg button{font-size:13px;line-height:1.25;min-height:56px}
+.warn{display:none;margin-top:10px;padding:12px;border-radius:12px;background:#ff6b6b22;border:1px solid var(--bad);color:var(--bad);font-size:14px;line-height:1.4}
+button:disabled{opacity:.45}
 </style>
 </head>
 <body>
@@ -98,7 +101,8 @@ button.xs{width:auto;min-height:40px;font-size:13px;padding:0 12px}
     <input type="file" id="phf" accept="image/*" hidden>
     <div class="pv" id="pv"><img id="pvimg" alt="Vista previa"><button type="button" id="pvx">✕ Quitar</button></div>
   </div>
-  <div class="seg"><button id="m-q" class="on">⚡ Cotización Rápida</button><button id="m-p">🧩 Proyecto Multi-Pieza</button></div>
+  <div class="seg"><button id="m-q" class="on">⚡<br>Rápida</button><button id="m-p">🧩<br>Multi-Pieza</button><button id="m-a">🎨<br>Multicolor</button></div>
+  <div class="hint" id="mode-title" style="margin:-4px 0 12px"></div>
   <div id="mode-q"><div class="card">
     <label>Impresora 3D (solo activas)</label>
     <select id="printer"></select>
@@ -126,13 +130,37 @@ button.xs{width:auto;min-height:40px;font-size:13px;padding:0 12px}
     <button id="addpc" class="sec">+ Agregar Pieza al Proyecto</button>
     <div class="hint" id="pc-sub" style="margin:10px 0;font-size:14px"></div>
     <div class="card">
-      <label>Horas de ensamble / post-procesado (opcional)</label>
-      <input id="g-hrs" type="number" inputmode="decimal" step="0.25" min="0" placeholder="0">
+      <label>Tiempo de ensamble / post-procesado (opcional)</label>
+      <div class="row"><input id="g-hrs" type="number" inputmode="numeric" min="0" placeholder="Horas"><input id="g-min" type="number" inputmode="numeric" min="0" max="59" placeholder="Minutos"></div>
       <label>Costo fijo por preparación de cama / lote (MXN, opcional)</label>
       <input id="g-fix" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0">
-      <div class="hint">Las horas se cobran con el costo por hora de ensamble definido en Parámetros.</div>
+      <div class="hint">El tiempo se cobra con el costo por hora de ensamble definido en Parámetros.</div>
       <div class="btns"><button id="calcp">CALCULAR PROYECTO</button></div>
       <div class="hint">Cada cálculo se guarda automáticamente en el Historial.</div>
+    </div>
+  </div>
+  <div id="mode-a" style="display:none">
+    <div class="card">
+      <label>Impresora (debe tener sistema multi-material)</label>
+      <select id="a-pr"></select>
+      <div class="warn" id="a-warn"></div>
+      <div class="hint" id="a-info"></div>
+    </div>
+    <div id="a-body">
+      <div class="card">
+        <label>Tiempo de impresión de la pieza</label>
+        <div class="row"><input id="a-h" type="number" inputmode="numeric" min="0" placeholder="Horas"><input id="a-m" type="number" inputmode="numeric" min="0" max="59" placeholder="Minutos"></div>
+<div id="a-purge-box">
+          <label>Factor de purga / desperdicio de material (%) (opcional)</label>
+          <input id="a-purge" type="number" inputmode="decimal" step="0.5" min="0" placeholder="Ej. 10">
+          <div class="hint">Suma ese porcentaje extra al costo de los gramos, por el filamento que se purga en cada cambio de color (torre de desperdicio).</div>
+        </div>
+      </div>
+      <div id="afs"></div>
+      <button id="addaf" class="sec">+ Agregar filamento a la pieza</button>
+      <div class="hint" id="a-sub" style="margin:10px 0;font-size:14px"></div>
+      <div class="btns"><button id="calca">CALCULAR IMPRESIÓN MULTICOLOR</button></div>
+      <div class="hint">Este modo no incluye costos de ensamble ni pegado. Cada cálculo se guarda automáticamente en el Historial.</div>
     </div>
   </div>
   <div id="out" style="display:none">
@@ -196,6 +224,9 @@ button.xs{width:auto;min-height:40px;font-size:13px;padding:0 12px}
     <input id="p-kw" type="number" inputmode="decimal" step="0.01" value="0.15">
     <label>Desgaste / depreciación por hora (MXN)</label>
     <input id="p-wear" type="number" inputmode="decimal" step="0.01" value="3.33">
+    <label>Sistema multi-material</label>
+    <select id="p-mm"><option value="none">Ninguno (Monocolor)</option><option value="ams">Sistema Multicolor por Cambio de Filamento (AMS / CFS / MMU / AD5X)</option><option value="dual">Sistema Multi-Cabezal / Dual Extrusión (IDEX / Multi-Tool)</option></select>
+    <div class="hint">Monocolor: un solo extrusor estándar. Cambio de filamento: un extrusor con hub de bobinas, genera purga. Multi-cabezal: cabezales independientes (IDEX, doble boquilla para PVA o soporte soluble), sin torre de purga.</div>
     <label>Materiales que soporta</label>
     <div class="mats" id="p-mats"></div>
     <div class="row" style="margin-top:8px"><input id="p-newmat" type="text" placeholder="Agregar otro material"><button type="button" id="p-addmat" class="sec" style="flex:none;width:96px">+ Añadir</button></div>
@@ -255,7 +286,7 @@ button.xs{width:auto;min-height:40px;font-size:13px;padding:0 12px}
 (function(){
 "use strict";
 /* ===== CONFIGURA TU FIREBASE AQUÍ (ver instrucciones) ===== */
-var FIREBASE={apiKey:"AIzaSyAPfOITV94spaR9KvxJxKiXU6D7z0BBxLA",projectId:"cotizador3d-669a8"};
+var FIREBASE={apiKey:"",projectId:""};
 /* ========================================================== */
 var $=function(id){return document.getElementById(id)};
 var KEY="cot3d_v1",HKEY="cot3d_hist_v1";
@@ -266,7 +297,7 @@ var DEF_CFG={fil:560,kwh:4.5,post:8,risk:10,mult:2.2,labor:50};
 var S={cfg:Object.assign({},DEF_CFG),
   printers:[{id:"p1",name:"Flashforge Adventurer 5M Pro",kw:0.15,wear:3.33,active:true,mats:["PLA","PETG","TPU","ABS","ASA","PLA-CF"]}],
   filaments:[{id:"f1",type:"PLA",brand:"Genérico",color:"Negro",price:560,weight:1000,active:true}],
-  sel:"p1",fil:"",fType:null,fColor:"",fBrand:"",customMats:[],pcs:[],mode:"q",gh:"",gf:"",mod:0,dirty:false,hist:[],photo:"",view:"",pt:"",last:null};
+  sel:"p1",fil:"",fType:null,fColor:"",fBrand:"",customMats:[],pcs:[],mode:"q",gh:"",gm:"",gf:"",adv:{pr:"",h:"",m:"",purge:"",fs:[]},mod:0,dirty:false,hist:[],photo:"",view:"",pt:"",last:null};
 var editP=null,editF=null;
 
 function load(){
@@ -277,12 +308,14 @@ function load(){
     if(d.sel)S.sel=d.sel;if(d.fil!==undefined)S.fil=d.fil;
     if(d.customMats)S.customMats=d.customMats;
     if(d.mod)S.mod=d.mod;if(d.dirty)S.dirty=d.dirty;
-    if(Array.isArray(d.pcs))S.pcs=d.pcs;if(d.mode)S.mode=d.mode;S.gh=d.gh||"";S.gf=d.gf||"";
+    if(Array.isArray(d.pcs))S.pcs=d.pcs;if(d.mode)S.mode=d.mode;S.gh=d.gh||"";S.gm=d.gm||"";S.gf=d.gf||"";
+    if(d.adv&&Array.isArray(d.adv.fs))S.adv=d.adv;
     if(d.fType!==undefined)S.fType=d.fType;if(d.fColor)S.fColor=d.fColor;if(d.fBrand)S.fBrand=d.fBrand;}}catch(e){}
   try{var hh=localStorage.getItem(HKEY);if(hh)S.hist=JSON.parse(hh)||[]}catch(e){}
   var mig=function(t){return t==="PLA-CF / Técnico"?"PLA-CF":t};
   S.printers.forEach(function(p){ // migración de datos anteriores
     if(p.active===undefined)p.active=true;
+    if(!p.mm)p.mm="none";
     if(!p.mats)p.mats=["PLA","PETG","TPU","ABS","ASA","PLA-CF"];
     p.mats=p.mats.map(mig);
   });
@@ -295,7 +328,7 @@ function save(){
   var sp=synPart();
   if(S.lastSP!==undefined&&sp!==S.lastSP){S.mod=Date.now();S.dirty=true;schedSync()}
   S.lastSP=sp;
-  try{localStorage.setItem(KEY,JSON.stringify({cfg:S.cfg,printers:S.printers,filaments:S.filaments,sel:S.sel,fil:S.fil,fType:S.fType,fColor:S.fColor,fBrand:S.fBrand,customMats:S.customMats,mod:S.mod,dirty:S.dirty,pcs:S.pcs,mode:S.mode,gh:S.gh,gf:S.gf}))}catch(e){}
+  try{localStorage.setItem(KEY,JSON.stringify({cfg:S.cfg,printers:S.printers,filaments:S.filaments,sel:S.sel,fil:S.fil,fType:S.fType,fColor:S.fColor,fBrand:S.fBrand,customMats:S.customMats,mod:S.mod,dirty:S.dirty,pcs:S.pcs,mode:S.mode,gh:S.gh,gm:S.gm,gf:S.gf,adv:S.adv}))}catch(e){}
 }
 function num(v,d){var n=parseFloat(String(v).replace(",","."));return isNaN(n)?(d||0):n}
 function mxn(n){return "$"+n.toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2})}
@@ -325,6 +358,9 @@ $("reset").onclick=function(){if(confirm("¿Restablecer parámetros a los valore
 
 /* Selectores del cotizador */
 function activePrinters(){return S.printers.filter(function(p){return p.active})}
+function slots(p){return p&&(p.mm==="ams"||p.mm==="dual")?Infinity:1}
+function isMM(p){return slots(p)>1}
+function mmLabel(p){return p.mm==="ams"?"🎨 Cambio de filamento (AMS/CFS/MMU)":(p.mm==="dual"?"🛠️ Multi-cabezal (IDEX)":"Monocolor")}
 function getPrn(){var a=activePrinters();return a.find(function(p){return p.id===S.sel})||a[0]||null}
 function compat(p){return p?S.filaments.filter(function(f){return f.active&&p.mats.indexOf(f.type)>-1}):[]}
 function renderQ(){
@@ -355,7 +391,7 @@ function renderFilSel(){
   $("f3").innerHTML=brs.length?brs.map(function(f){return '<option value="'+esc(f.brand)+'">'+esc(f.brand)+' — '+mxn(gcost(f))+'/g</option>'}).join(""):'<option value="">—</option>';
   $("f3").value=S.fBrand;$("f3").disabled=!brs.length;
   $("filhint").textContent=!p?"Activa una impresora en la pestaña Impresoras.":(!list.length?"Ningún filamento activo es compatible con esta impresora; se usará el costo general.":(fl?"Filamento seleccionado: "+mxn(gcost(fl))+" por gramo.":"Se usará el costo general."));
-  renderPcs();save();
+  renderPcs();renderAdv();save();
 }
 $("f1").onchange=function(){S.fType=$("f1").value;renderFilSel()};
 $("f3").onchange=function(){S.fBrand=$("f3").value;renderFilSel()};
@@ -374,7 +410,7 @@ function renderMatBoxes(sel){
 }
 function renderPrn(){
   $("plist").innerHTML=S.printers.map(function(p){
-    return '<div class="pr'+(p.active?"":" off")+'"><div class="top"><div class="i"><b>'+esc(p.name)+'</b><small>'+p.kw+' kW · '+mxn(p.wear)+'/hr</small></div>'+
+    return '<div class="pr'+(p.active?"":" off")+'"><div class="top"><div class="i"><b>'+esc(p.name)+'</b><small>'+p.kw+' kW · '+mxn(p.wear)+'/hr · '+mmLabel(p)+'</small></div>'+
     '<label class="sw"><input type="checkbox" data-a="tog" data-id="'+p.id+'"'+(p.active?" checked":"")+'><i></i>'+(p.active?"Activa":"En pausa")+'</label></div>'+
     '<div class="chips">'+(p.mats.length?p.mats.map(function(m){return '<span class="chip">'+esc(m)+'</span>'}).join(""):'<span class="hint">Sin materiales marcados</span>')+'</div>'+
     '<div class="acts"><button class="sec" data-a="edit" data-id="'+p.id+'">✏️ Editar</button><button class="bad" data-a="del" data-id="'+p.id+'">🗑️ Eliminar</button></div></div>';
@@ -389,7 +425,7 @@ $("plist").onclick=function(e){
   var b=e.target.closest("button");if(!b)return;
   var id=b.dataset.id;
   if(b.dataset.a==="edit"){var p=pf(id);editP=id;
-    $("p-name").value=p.name;$("p-kw").value=p.kw;$("p-wear").value=p.wear;renderMatBoxes(p.mats);
+    $("p-name").value=p.name;$("p-kw").value=p.kw;$("p-wear").value=p.wear;$("p-mm").value=p.mm||"none";renderMatBoxes(p.mats);
     $("ftitle").textContent="Editar impresora";$("p-cancel").style.display="";window.scrollTo(0,document.body.scrollHeight)}
   if(b.dataset.a==="del"){
     if(S.printers.length<2){toast("Debe quedar al menos una impresora");return}
@@ -397,7 +433,7 @@ $("plist").onclick=function(e){
       save();renderPrn();renderQ();toast("Eliminada")}
   }
 };
-function clearP(){editP=null;$("p-name").value="";$("p-kw").value="0.15";$("p-wear").value="3.33";renderMatBoxes(["PLA","PETG"]);$("ftitle").textContent="Agregar impresora";$("p-cancel").style.display="none"}
+function clearP(){editP=null;$("p-name").value="";$("p-kw").value="0.15";$("p-wear").value="3.33";$("p-mm").value="none";renderMatBoxes(["PLA","PETG"]);$("ftitle").textContent="Agregar impresora";$("p-cancel").style.display="none"}
 $("p-cancel").onclick=clearP;
 $("p-addmat").onclick=function(){var n=addMat($("p-newmat").value);if(!n)return;var ch=checkedMats();if(ch.indexOf(n)<0)ch.push(n);renderMatBoxes(ch);fillTypes();$("p-newmat").value="";save();toast("Material añadido")};
 $("p-save").onclick=function(){
@@ -405,8 +441,8 @@ $("p-save").onclick=function(){
   if(!name){toast("Escribe un nombre");return}
   var kw=num($("p-kw").value,0.15),wear=num($("p-wear").value,3.33);
   var mats=checkedMats();
-  if(editP){var p=pf(editP);p.name=name;p.kw=kw;p.wear=wear;p.mats=mats}
-  else{var id="p"+Date.now();S.printers.push({id:id,name:name,kw:kw,wear:wear,active:true,mats:mats});S.sel=id;S.fil=""}
+  if(editP){var p=pf(editP);p.name=name;p.kw=kw;p.wear=wear;p.mats=mats;p.mm=$("p-mm").value}
+  else{var id="p"+Date.now();S.printers.push({id:id,name:name,kw:kw,wear:wear,active:true,mats:mats,mm:$("p-mm").value});S.sel=id;S.fil=""}
   save();renderPrn();renderQ();clearP();toast("Impresora guardada");
 };
 
@@ -552,23 +588,28 @@ $("pcs").oninput=function(e){
 $("addpc").onclick=function(){S.pcs.push(newPc());renderPcs();save();toast("Pieza agregada")};
 $("g-hrs").oninput=function(){S.gh=this.value;save()};
 $("g-fix").oninput=function(){S.gf=this.value;save()};
+$("g-min").oninput=function(){S.gm=this.value;save()};
+var MT={q:"Cotización Rápida — una sola pieza, disponible para cualquier impresora.",p:"Proyecto Multi-Placa / Multi-Pieza — figuras en partes, varios colores y camas. Cualquier impresora.",a:"Impresión Avanzada Multicolor / Multi-Material — pieza única en equipos con cambio de filamento (AMS / CFS / MMU / AD5X) o multi-cabezal (IDEX)."};
 function setMode(m){
+  if(!MT[m])m="q";
   S.mode=m;
-  $("mode-q").style.display=m==="q"?"block":"none";
-  $("mode-p").style.display=m==="p"?"block":"none";
-  $("m-q").classList.toggle("on",m==="q");$("m-p").classList.toggle("on",m==="p");
+  ["q","p","a"].forEach(function(k){$("mode-"+k).style.display=k===m?"block":"none";$("m-"+k).classList.toggle("on",k===m)});
+  $("mode-title").textContent=MT[m];
   $("out").style.display="none";
   if(m==="p"&&!S.pcs.length){S.pcs.push(newPc());renderPcs()}
+  if(m==="a")renderAdv();
   save();
 }
 $("m-q").onclick=function(){setMode("q")};
 $("m-p").onclick=function(){setMode("p")};
+$("m-a").onclick=function(){setMode("a")};
 function brk(e){
   var h='<div class="hint" style="margin:10px 0 2px">Desglose del proyecto</div>';
   function row(a,b){return '<div class="res"><span>'+a+'</span><b style="font-size:16px">'+b+'</b></div>'}
+  if(e.lines){e.lines.forEach(function(l){h+=row(esc(l.a)+(l.b?'<br><small>'+esc(l.b)+'</small>':''),mxn(l.v))});return h}
   e.items.forEach(function(it){h+=row(esc(it.name)+(it.q>1?" ×"+it.q:"")+'<br><small>'+esc(it.mat)+' · '+it.g+' g · '+tfmt(it.h,it.m)+'</small>',mxn(it.cost))});
   if(e.post>0)h+=row("Insumos de posprocesado",mxn(e.post));
-  if(e.labor>0)h+=row("Ensamble / post-procesado ("+e.asmH+" h)",mxn(e.labor));
+  if(e.labor>0)h+=row("Ensamble / post-procesado ("+hm(e.asmH)+")",mxn(e.labor));
   if(e.fixed>0)h+=row("Preparación de cama / lote",mxn(e.fixed));
   return h;
 }
@@ -584,7 +625,7 @@ $("calcp").onclick=function(){
     if(prs.indexOf(ch.p.name)<0)prs.push(ch.p.name);
   });
   if(bad){toast("Revisa las piezas: impresora activa y peso o tiempo");return}
-  var gh=num(S.gh),gf=num(S.gf),labor=gh*c.labor;
+  var gh=num(S.gh)+num(S.gm)/60,gf=num(S.gf),labor=gh*c.labor;
   var cost=sub+c.post+labor+gf,direct=cost*c.mult;
   var entry={id:"h"+Date.now(),ts:Date.now(),name:$("proj").value.trim(),photo:S.photo||"",type:"multi",items:items,post:c.post,asmH:gh,labor:labor,fixed:gf,
     printer:prs.join(", "),mat:"Proyecto multi-pieza",g:grams,h:0,m:0,q:units,cost:cost,direct:direct,profit:direct-cost,market:direct*1.28,d:0,unit:direct};
@@ -592,6 +633,107 @@ $("calcp").onclick=function(){
   $("r-cost").textContent=mxn(cost);
   $("r-direct").textContent=mxn(direct);
   $("r-profit").textContent=mxn(direct-cost);
+  $("r-market").textContent=mxn(direct*1.28);
+  $("row-unit").style.display="none";
+  $("disc").style.display="none";
+  $("r-det").innerHTML=brk(entry);
+  $("out").style.display="block";
+  $("out").scrollIntoView({behavior:"smooth",block:"start"});
+};
+
+/* ===== Modo 3: Impresión Avanzada Multicolor / Multi-Material ===== */
+function hm(dec){var t=Math.round((dec||0)*60);return tfmt(Math.floor(t/60),t%60)}
+function modeName(e){return e.items?"Proyecto multi-placa / multi-pieza":(e.lines?"Impresión avanzada multicolor / multi-material":"Cotización rápida")}
+function newAf(){return {id:"a"+Date.now()+Math.random().toString(36).slice(2,5),pr:S.adv.pr,ty:null,co:"",br:"",g:""}}
+function renderAdv(){
+  var A=S.adv,ap=activePrinters();
+  if(!ap.some(function(p){return p.id===A.pr}))A.pr=(ap.find(isMM)||ap[0]||{}).id||"";
+  var p=pf(A.pr),ok=!!p&&isMM(p),w=$("a-warn");
+  $("a-pr").innerHTML=ap.length?ap.map(function(x){return '<option value="'+x.id+'"'+(x.id===A.pr?" selected":"")+'>'+esc(x.name)+(isMM(x)?"":" — monocolor")+'</option>'}).join(""):'<option value="">Sin impresoras activas</option>';
+  $("a-h").value=A.h;$("a-m").value=A.m;$("a-purge").value=A.purge;
+  if(!p){w.style.display="block";w.textContent="⚠️ No hay impresoras activas. Activa una en la pestaña Impresoras."}
+  else if(!ok){w.style.display="block";w.textContent="⛔ "+p.name+" es monocolor y no es compatible con impresión multicolor / multi-material de una sola pieza. Elige una impresora con sistema de cambio de filamento (AMS / CFS / MMU / AD5X) o multi-cabezal (IDEX / Multi-Tool)."+(ap.some(isMM)?"":" Ahora mismo ninguna de tus impresoras activas tiene sistema multi-material: configúralo al editar la impresora en la pestaña Impresoras.")}
+  else w.style.display="none";
+  $("a-info").textContent=ok?"Sistema: "+mmLabel(p)+(p.mm==="ams"?" · puedes sumar un % de purga / torre de desperdicio.":" · sin torre de purga: se cobra el peso exacto de cada filamento."):"";
+  $("a-purge-box").style.display=ok&&p.mm==="ams"?"block":"none";
+  $("a-body").style.display=ok?"block":"none";
+  if(!ok)return;
+  if(!A.fs.length){A.fs.push(newAf());A.fs.push(newAf())}
+  $("afs").innerHTML=A.fs.map(function(f,i){
+    f.pr=A.pr;
+    var ch=pchain(f),d=' data-i="'+i+'"',cur=ch.cols.find(function(x){return x.color===f.co});
+    var tS='<option value="">Costo general ('+mxn(S.cfg.fil)+'/kg)</option>'+ch.types.map(function(x){return '<option value="'+esc(x.type)+'"'+(x.type===f.ty?" selected":"")+'>'+esc(x.type)+'</option>'}).join("");
+    var cL=ch.cols.map(function(x){return '<div class="cs-o" data-i="'+i+'" data-c="'+esc(x.color)+'">'+dot(x)+esc(x.color)+'</div>'}).join("");
+    var bS=ch.brs.length?ch.brs.map(function(x){return '<option value="'+esc(x.brand)+'"'+(x.brand===f.br?" selected":"")+'>'+esc(x.brand)+' — '+mxn(gcost(x))+'/g</option>'}).join(""):'<option value="">—</option>';
+    return '<div class="card"><div class="phead"><b>Filamento '+(i+1)+'</b>'+(A.fs.length>2?'<button class="bad xs" data-a="rm"'+d+'>🗑️</button>':'')+'</div>'+
+    '<label>Tipo de material</label><select'+d+' data-k="ty">'+tS+'</select>'+
+    '<label>Color del filamento</label><div class="cs"><button type="button" class="cs-btn" data-a="cbtn"'+d+(ch.cols.length?"":" disabled")+'>'+(cur?dot(cur)+esc(cur.color):'<span style="color:var(--mut)">—</span>')+'</button><div class="cs-list" id="al'+i+'">'+cL+'</div></div>'+
+    '<label>Marca del filamento</label><select'+d+' data-k="br"'+(ch.brs.length?"":" disabled")+'>'+bS+'</select>'+
+    '<label>Gramos usados en la pieza (g)</label><input type="number" inputmode="decimal" step="0.1"'+d+' data-k="g" value="'+esc(f.g)+'">'+
+    '<div class="gcost" id="acc-'+i+'"></div></div>';
+  }).join("");
+  updAdv();
+}
+function updAdv(){
+  var A=S.adv,p=pf(A.pr),c=S.cfg,tot=0,el=$("a-sub");
+  A.fs.forEach(function(f,i){
+    var e=$("acc-"+i);if(!e)return;
+    var ch=pchain(f),g=num(f.g),gc=ch.fl?gcost(ch.fl):c.fil/1000;
+    tot+=g*gc;e.textContent=g>0?"Costo de este filamento: "+mxn(g*gc):"";
+  });
+  el.textContent="Subtotal de filamentos"+(p&&p.mm==="ams"?" (sin purga)":"")+": "+mxn(tot);
+}
+function advCalc(){
+  var A=S.adv,p=pf(A.pr),c=S.cfg;
+  if(!p||!isMM(p))return {err:"Selecciona una impresora multi-material"};
+  var hours=num(A.h)+num(A.m)/60,purge=p.mm==="ams"?Math.max(0,num(A.purge)):0,fils=[],base=0,tg=0;
+  A.fs.forEach(function(f){
+    f.pr=A.pr;var ch=pchain(f),g=num(f.g),gc=ch.fl?gcost(ch.fl):c.fil/1000;
+    fils.push({mat:ch.fl?fname(ch.fl):"Costo general",g:g,cost:g*gc});base+=g*gc;tg+=g;
+  });
+  if(fils.length<2)return {err:"Agrega al menos 2 filamentos"};
+  if(fils.some(function(f){return f.g<=0}))return {err:"Captura los gramos de cada filamento"};
+  if(hours<=0)return {err:"Captura el tiempo de impresión"};
+  var pg=base*purge/100,mach=hours*p.kw*c.kwh+hours*p.wear,risk=(base+pg+mach)*c.risk/100;
+  return {p:p,purge:purge,fils:fils,tg:tg,pg:pg,mach:mach,risk:risk,cost:base+pg+mach+risk+c.post};
+}
+$("a-pr").onchange=function(){S.adv.pr=this.value;renderAdv();save()};
+$("a-h").oninput=function(){S.adv.h=this.value;save()};
+$("a-m").oninput=function(){S.adv.m=this.value;save()};
+$("a-purge").oninput=function(){S.adv.purge=this.value;save()};
+$("addaf").onclick=function(){S.adv.fs.push(newAf());renderAdv();save()};
+$("afs").onclick=function(e){
+  var o=e.target.closest(".cs-o");
+  if(o){S.adv.fs[+o.dataset.i].co=o.dataset.c;renderAdv();save();return}
+  var b=e.target.closest("button");if(!b)return;
+  var i=+b.dataset.i,a=b.dataset.a;
+  if(a==="cbtn"){e.stopPropagation();var l=$("al"+i),was=l.classList.contains("open");closeCs();if(!was)l.classList.add("open");return}
+  if(a==="rm"){S.adv.fs.splice(i,1);renderAdv();save()}
+};
+$("afs").onchange=function(e){
+  var t=e.target,i=+t.dataset.i,k=t.dataset.k;
+  if(isNaN(i)||!k||t.tagName!=="SELECT")return;
+  S.adv.fs[i][k]=t.value;renderAdv();save();
+};
+$("afs").oninput=function(e){
+  var t=e.target,i=+t.dataset.i,k=t.dataset.k;
+  if(isNaN(i)||!k||t.tagName==="SELECT")return;
+  S.adv.fs[i][k]=t.value;updAdv();save();
+};
+$("calca").onclick=function(){
+  var r=advCalc();if(r.err){toast(r.err);return}
+  var c=S.cfg,A=S.adv,direct=r.cost*c.mult;
+  var lines=r.fils.map(function(f){return {a:f.mat,b:f.g+" g",v:f.cost}});
+  if(r.pg>0)lines.push({a:"Purga / desperdicio ("+r.purge+"%)",v:r.pg});
+  lines.push({a:"Electricidad y desgaste de la impresora",v:r.mach});
+  if(r.risk>0)lines.push({a:"Margen de riesgo / fallas",v:r.risk});
+  if(c.post>0)lines.push({a:"Insumos de posprocesado",v:c.post});
+  var entry={id:"h"+Date.now(),ts:Date.now(),name:$("proj").value.trim(),photo:S.photo||"",type:"adv",fils:r.fils,purge:r.purge,lines:lines,
+    printer:r.p.name,mat:"Multicolor · "+r.fils.length+" filamentos",g:r.tg,h:num(A.h),m:num(A.m),q:1,cost:r.cost,direct:direct,profit:direct-r.cost,market:direct*1.28,d:0,unit:direct};
+  S.last=entry;addHist(entry);
+  $("r-cost").textContent=mxn(r.cost);
+  $("r-direct").textContent=mxn(direct);
+  $("r-profit").textContent=mxn(direct-r.cost);
   $("r-market").textContent=mxn(direct*1.28);
   $("row-unit").style.display="none";
   $("disc").style.display="none";
@@ -611,18 +753,27 @@ function copyText(t){
   });
 }
 function buildWAP(r){
-  var l="*COTIZACIÓN DE PROYECTO 3D*\n\n"+(r.name?"🧩 Proyecto: "+r.name+"\n":"")+"📦 Piezas del proyecto ("+r.items.length+"):\n";
+  var l="*COTIZACIÓN DE IMPRESIÓN 3D*\n🛠️ Modo: Proyecto multi-placa / multi-pieza\n\n"+(r.name?"🧩 Proyecto: "+r.name+"\n":"")+"📦 Piezas del proyecto ("+r.items.length+"):\n";
   r.items.forEach(function(it){
     l+="\n• "+it.name+(it.q>1?" ×"+it.q:"")+"\n"+(it.mat!=="Costo general"?"   🧵 "+it.mat+"\n":"")+"   ⚖️ "+it.g+" g · ⏱️ "+tfmt(it.h,it.m)+"\n";
   });
-  if(r.asmH>0)l+="\n🔧 Ensamble y acabado: "+r.asmH+" h\n";
+  if(r.asmH>0)l+="\n🔧 Ensamble y acabado: "+hm(r.asmH)+"\n";
   l+="\n💵 *TOTAL DEL PROYECTO: "+mxn(r.direct)+" MXN*\n\nPrecios en pesos mexicanos. ¡Gracias por tu preferencia!";
+  return l;
+}
+function buildWAA(r){
+  var l="*COTIZACIÓN DE IMPRESIÓN 3D*\n🛠️ Modo: Impresión avanzada multicolor / multi-material\n\n"+(r.name?"🧩 Proyecto: "+r.name+"\n":"")+"🖨️ Equipo multi-material: "+r.printer+"\n🎨 Filamentos en la pieza ("+r.fils.length+"):\n";
+  r.fils.forEach(function(f){l+="• "+f.mat+" — "+f.g+" g\n"});
+  l+="\n⏱️ Tiempo de impresión: "+tfmt(r.h,r.m)+"\n";
+  if(r.purge>0)l+="♻️ Incluye purga / desperdicio de material: "+r.purge+"%\n";
+  l+="\n💵 *TOTAL: "+mxn(r.direct)+" MXN*\n\nPrecios en pesos mexicanos. ¡Gracias por tu preferencia!";
   return l;
 }
 function buildWA(r){
   if(r.items)return buildWAP(r);
+  if(r.fils)return buildWAA(r);
   var tiempo=((r.h?r.h+" h ":"")+(r.m?r.m+" min":"")).trim()||"—";
-  return "*COTIZACIÓN DE IMPRESIÓN 3D*\n\n"+
+  return "*COTIZACIÓN DE IMPRESIÓN 3D*\n🛠️ Modo: Cotización rápida\n\n"+
     (r.name?"🧩 Proyecto: "+r.name+"\n":"")+
     "📦 Piezas: "+r.q+"\n"+
     (r.mat&&r.mat!=="Costo general"?"🧵 Material: "+r.mat+"\n":"")+
@@ -702,12 +853,15 @@ function showDetail(id){
   function row(a,b){return '<div class="res"><span>'+a+'</span><b>'+b+'</b></div>'}
   var head=(e.photo?'<img src="'+e.photo+'" alt="">':'')+'<h3>'+esc(e.name||"Sin nombre")+'</h3><div class="hint">'+fdate(e.ts)+'</div>';
   var tail=row("Costo de fabricación",mxn(e.cost))+row("Precio sugerido directo",'<span style="color:var(--ok);max-width:none">'+mxn(e.direct)+'</span>');
-  var body;
+  var fin=row("Ganancia neta",mxn(e.profit))+row("Precio Marketplaces",mxn(e.market));
+  var body=row("Modo",modeName(e));
   if(e.items){
-    body=row("Tipo","Proyecto multi-pieza")+row("Impresoras",esc(e.printer))+brk(e)+tail+row("Ganancia neta",mxn(e.profit))+row("Precio Marketplaces",mxn(e.market));
+    body+=row("Impresoras",esc(e.printer))+brk(e)+tail+fin;
+  }else if(e.lines){
+    body+=row("Impresora",esc(e.printer))+row("Tiempo de impresión",tfmt(e.h,e.m))+brk(e)+tail+fin;
   }else{
-    body=row("Impresora",esc(e.printer))+row("Filamento",esc(e.mat))+row("Piezas",e.q)+row("Peso por pieza",e.g+" g")+row("Tiempo por pieza",tfmt(e.h,e.m))+
-      (e.d>0?row("Descuento por volumen","-"+(e.d*100)+"%"):"")+tail+row("Precio por pieza",mxn(e.unit))+row("Ganancia neta",mxn(e.profit))+row("Precio Marketplaces",mxn(e.market));
+    body+=row("Impresora",esc(e.printer))+row("Filamento",esc(e.mat))+row("Piezas",e.q)+row("Peso por pieza",e.g+" g")+row("Tiempo por pieza",tfmt(e.h,e.m))+
+      (e.d>0?row("Descuento por volumen","-"+(e.d*100)+"%"):"")+tail+row("Precio por pieza",mxn(e.unit))+fin;
   }
   $("mbody").innerHTML=head+body;
   $("modal").classList.add("open");
@@ -794,7 +948,7 @@ function renderY(){
   $("y-st").textContent=!cfgOK()?"⚠️ Nube no configurada: pega tu apiKey y projectId de Firebase al inicio del código (ver instrucciones).":(on?"Cuenta: "+Y.email+(Y.last?" · Último respaldo: "+fdate(Y.last):" · Aún sin respaldo"):"Inicia sesión o crea una cuenta para respaldar tus datos.");
 }
 function prog(pc,m){$("bar").style.display="block";$("barf").style.width=pc+"%";$("bartx").textContent=m}
-function refreshAll(){fillCfg();fillTypes();renderMatBoxes(checkedMats());renderPrn();renderFil();renderQ();renderHist();renderPcs()}
+function refreshAll(){fillCfg();fillTypes();renderMatBoxes(checkedMats());renderPrn();renderFil();renderQ();renderHist();renderPcs();renderAdv()}
 function schedSync(){
   setPill();
   if(tmr)clearTimeout(tmr);
@@ -880,7 +1034,7 @@ window.addEventListener("online",function(){setPill();toast("Conexión recuperad
 window.addEventListener("offline",function(){setPill();toast("Sin conexión: se guarda solo en este celular")});
 
 load();fillCfg();fillTypes();renderMatBoxes(["PLA","PETG"]);renderPrn();renderFil();renderQ();renderHist();renderY();setPill();
-$("g-hrs").value=S.gh;$("g-fix").value=S.gf;setMode(S.mode==="p"?"p":"q");
+$("g-hrs").value=S.gh;$("g-min").value=S.gm;$("g-fix").value=S.gf;setMode(S.mode);
 if(navigator.onLine&&Y.uid)setTimeout(function(){syncAll(false)},1500);
 })();
 </script>
